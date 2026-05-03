@@ -607,16 +607,22 @@ function AffordabilityInput({
           <p className="text-sm font-semibold text-green-800">
             💰 You can afford up to ~${(avgMax / 1000).toFixed(0)}k (average across MA towns)
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            {cityResults.slice(0, 6).map((c) => (
-              <div key={c.city} className="flex justify-between text-xs p-2 bg-white rounded-md">
-                <span className="text-slate-600">{c.city}</span>
-                <span className="font-semibold text-slate-900">${(c.maxPrice / 1000).toFixed(0)}k</span>
+          <div className="space-y-1">
+            <div className="grid grid-cols-3 gap-1 text-xs font-medium text-slate-500 px-2">
+              <span>City</span>
+              <span className="text-right">Max Price</span>
+              <span className="text-right">Tax Rate</span>
+            </div>
+            {cityResults.map((c) => (
+              <div key={c.city} className="grid grid-cols-3 gap-1 text-xs p-2 bg-white rounded-md">
+                <span className="text-slate-700 font-medium">{c.city}</span>
+                <span className="font-semibold text-slate-900 text-right">${(c.maxPrice / 1000).toFixed(0)}k</span>
+                <span className="text-slate-500 text-right">{(c.taxRate / 10).toFixed(2)}%</span>
               </div>
             ))}
           </div>
           <p className="text-xs text-green-600">
-            Includes property tax ({cityResults[0]?.taxRate ? `${(cityResults[0].taxRate / 10).toFixed(2)}%` : "~1%"}), insurance, {down / avgMax < 0.2 ? "PMI, " : ""}and principal/interest
+            Includes property tax, insurance{down / avgMax < 0.2 ? ", PMI" : ""}, and principal/interest at {rate.toFixed(1)}%
           </p>
         </div>
       )}

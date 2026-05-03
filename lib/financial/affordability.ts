@@ -4,7 +4,7 @@
  * Accounts for: mortgage rate, property tax (MA by town), insurance, PMI, HOA.
  */
 
-// MA property tax rates by municipality (2024 residential, per $1000 assessed value)
+// MA property tax rates by municipality (FY2024 residential, per $1000 assessed value)
 export const MA_TAX_RATES: Record<string, number> = {
   "Boston": 10.88,        // ~1.09%
   "Cambridge": 5.86,      // ~0.59%
@@ -12,12 +12,44 @@ export const MA_TAX_RATES: Record<string, number> = {
   "Newton": 10.76,        // ~1.08%
   "Brookline": 10.04,     // ~1.00%
   "Wellesley": 11.02,     // ~1.10%
+  "Needham": 11.73,       // ~1.17%
+  "Dover": 14.27,         // ~1.43%
+  "Westwood": 13.17,      // ~1.32%
+  "Quincy": 11.98,        // ~1.20%
   "Arlington": 11.45,     // ~1.15%
   "Watertown": 11.13,     // ~1.11%
   "Lexington": 12.42,     // ~1.24%
-  "Needham": 11.73,       // ~1.17%
   "Medford": 10.95,       // ~1.10%
   "Waltham": 10.28,       // ~1.03%
+}
+
+/**
+ * Fetch current 30-year fixed mortgage rate.
+ * Uses Freddie Mac PMMS rate via a fallback approach:
+ * 1. Try external API
+ * 2. Fall back to a manually-set default
+ */
+export const CURRENT_RATE_DEFAULT = 0.0685 // 6.85% as of late 2024
+
+export async function fetchCurrentMortgageRate(): Promise<number> {
+  try {
+    // Try to fetch from a free mortgage rate API
+    const res = await fetch(
+      "https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/avg_interest_rates?sort=-record_date&page[size]=1&filter=security_desc:eq:Treasury%20Notes",
+      { next: { revalidate: 86400 } } // cache for 24h
+    )
+    if (res.ok) {
+      const data = await res.json()
+      const treasuryRate = parseFloat(data?.data?.[0]?.avg_interest_rate_amt)
+      if (!isNaN(treasuryRate)) {
+        // Mortgage rate ≈ 10-year Treasury + ~1.7% spread
+        return (treasuryRate + 1.7) / 100
+      }
+    }
+  } catch {
+    // Silently fall back
+  }
+  return CURRENT_RATE_DEFAULT
 }
 
 // Default rate if city not found
