@@ -15,32 +15,32 @@ interface ImageCardSelectorProps {
   maxSelections?: number
 }
 
-// Curated Unsplash images for Saturday morning scenarios
+// Curated Unsplash images — unified warm/bright lifestyle aesthetic
 export const SATURDAY_IMAGES: Record<string, string> = {
   "Coffee by big windows, watching the light":
-    "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=400&h=250&fit=crop&crop=center",
+    "https://images.unsplash.com/photo-1494314671902-399b18174975?w=400&h=250&fit=crop&crop=center",
   "Cooking breakfast in a chef's kitchen":
-    "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=250&fit=crop&crop=center",
+    "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=400&h=250&fit=crop&crop=center",
   "Playing with kids in the yard":
-    "https://images.unsplash.com/photo-1540479859555-17af45c78602?w=400&h=250&fit=crop&crop=center",
+    "https://images.unsplash.com/photo-1471286174890-9c112ffca5b4?w=400&h=250&fit=crop&crop=center",
   "Walking kids to school or the playground":
-    "https://images.unsplash.com/photo-1596464716127-f2a82984de30?w=400&h=250&fit=crop&crop=center",
+    "https://images.unsplash.com/photo-1564429238961-bf8f8be663c2?w=400&h=250&fit=crop&crop=center",
   "Working from my home office":
-    "https://images.unsplash.com/photo-1593062096033-9a26b09da705?w=400&h=250&fit=crop&crop=center",
+    "https://images.unsplash.com/photo-1486312338219-ce68d2c6f44d?w=400&h=250&fit=crop&crop=center",
   "Reading quietly — total silence":
-    "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=250&fit=crop&crop=center",
+    "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=250&fit=crop&crop=center",
   "Walking to a café or farmers market":
-    "https://images.unsplash.com/photo-1559925393-8be0ec4767c8?w=400&h=250&fit=crop&crop=center",
+    "https://images.unsplash.com/photo-1554118811-1e0d58224f24?w=400&h=250&fit=crop&crop=center",
   "Quick errands — grocery, pharmacy all nearby":
-    "https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=400&h=250&fit=crop&crop=center",
+    "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=250&fit=crop&crop=center",
   "Going for a run, bike ride, or to the gym":
-    "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=250&fit=crop&crop=center",
+    "https://images.unsplash.com/photo-1476480862126-209bfaa8edc8?w=400&h=250&fit=crop&crop=center",
   "Gardening or tinkering outside":
-    "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400&h=250&fit=crop&crop=center",
+    "https://images.unsplash.com/photo-1585320806297-9794b3e4eeae?w=400&h=250&fit=crop&crop=center",
   "Walking the dog in a nearby park":
-    "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=400&h=250&fit=crop&crop=center",
+    "https://images.unsplash.com/photo-1530281700549-e82e7bf110d6?w=400&h=250&fit=crop&crop=center",
   "Hosting friends who stayed over":
-    "https://images.unsplash.com/photo-1528605248644-14dd04022da1?w=400&h=250&fit=crop&crop=center",
+    "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=400&h=250&fit=crop&crop=center",
 }
 
 export function ImageCardSelector({
