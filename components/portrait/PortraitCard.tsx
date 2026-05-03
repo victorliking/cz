@@ -127,6 +127,16 @@ function HomeProfile({ portrait }: { portrait: BuyerPortrait }) {
         <p className="text-sm text-slate-700 leading-relaxed">{portrait.searchStrategy}</p>
       </section>
 
+      {/* Personal Note (AI-generated) */}
+      {(portrait as any).personalNote && (
+        <section className="pt-4 border-t">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">A Note For You</p>
+          <p className="text-sm text-slate-700 leading-relaxed italic bg-blue-50 border border-blue-100 rounded-lg p-3">
+            {(portrait as any).personalNote}
+          </p>
+        </section>
+      )}
+
       {/* Three words */}
       {portrait.freeText?.threeWords && (
         <section className="pt-4 border-t">
