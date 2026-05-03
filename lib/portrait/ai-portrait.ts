@@ -1,74 +1,59 @@
 /**
- * AI-powered portrait narrative generation via Amazon Bedrock (Claude).
+ * AI-powered portrait narrative generation via Anthropic Claude API.
  * 
  * Architecture:
  * - Structured data (numbers, filters, weights) = deterministic (generate-portrait.ts)
  * - Narrative prose (insights, blind spots, strategy) = AI-generated (this file)
- * 
- * The AI sees ALL raw answers and generates personalized, emotionally resonant
- * text that makes the buyer feel "this system truly knows me."
  */
 
-import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime"
+import Anthropic from "@anthropic-ai/sdk"
 
-const client = new BedrockRuntimeClient({
-  region: process.env.AWS_REGION || "us-east-1",
-})
-
-const MODEL_ID = process.env.BEDROCK_MODEL_ID || "anthropic.claude-3-5-sonnet-20241022-v2:0"
+const getClient = () => {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) return null
+  return new Anthropic({ apiKey })
+}
 
 export interface AIPortraitNarrative {
-  /** 3-4 paragraphs of personalized insight — emotional + analytical */
   prose: string[]
-  /** 3-5 things the buyer hasn't realized about their own search */
   blindSpots: string[]
-  /** One paragraph: exactly what type of home to search for */
   searchStrategy: string
-  /** A personalized "note" that makes the buyer feel seen */
   personalNote: string
 }
 
 /**
  * Generate AI-powered narrative for a buyer portrait.
- * Falls back to deterministic generation if AI is unavailable.
+ * Returns null if API key not configured or call fails.
  */
 export async function generateAINarrative(
   answers: Record<string, unknown>,
   locale: "en" | "zh" = "en"
 ): Promise<AIPortraitNarrative | null> {
-  // Skip if no credentials configured
-  if (!process.env.AWS_ACCESS_KEY_ID && !process.env.AWS_REGION) {
-    return null
-  }
+  const client = getClient()
+  if (!client) return null
 
   const systemPrompt = buildSystemPrompt(locale)
   const userPrompt = buildUserPrompt(answers, locale)
 
   try {
-    const response = await client.send(
-      new InvokeModelCommand({
-        modelId: MODEL_ID,
-        contentType: "application/json",
-        accept: "application/json",
-        body: JSON.stringify({
-          anthropic_version: "bedrock-2023-05-31",
-          max_tokens: 2000,
-          temperature: 0.7,
-          system: systemPrompt,
-          messages: [
-            { role: "user", content: userPrompt },
-          ],
-        }),
-      })
-    )
+    const response = await client.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 2000,
+      temperature: 0.7,
+      system: systemPrompt,
+      messages: [
+        { role: "user", content: userPrompt },
+      ],
+    })
 
-    const body = JSON.parse(new TextDecoder().decode(response.body))
-    const text = body.content?.[0]?.text
-
+    const text = response.content[0].type === "text" ? response.content[0].text : null
     if (!text) return null
 
-    // Parse the structured JSON response
-    const parsed = JSON.parse(text)
+    // Extract JSON from response (handle potential markdown wrapping)
+    const jsonMatch = text.match(/\{[\s\S]*\}/)
+    if (!jsonMatch) return null
+
+    const parsed = JSON.parse(jsonMatch[0])
     return {
       prose: parsed.prose || [],
       blindSpots: parsed.blindSpots || [],
@@ -76,7 +61,7 @@ export async function generateAINarrative(
       personalNote: parsed.personalNote || "",
     }
   } catch (error) {
-    console.error("[AI Portrait] Generation failed, using deterministic fallback:", error)
+    console.error("[AI Portrait] Generation failed:", error)
     return null
   }
 }
@@ -95,7 +80,7 @@ Your output style:
 
 Output language: ${lang}
 
-You MUST respond with valid JSON in this exact format:
+You MUST respond with ONLY valid JSON (no markdown, no explanation) in this exact format:
 {
   "prose": ["paragraph1", "paragraph2", "paragraph3"],
   "blindSpots": ["insight1", "insight2", "insight3"],
@@ -104,14 +89,13 @@ You MUST respond with valid JSON in this exact format:
 }
 
 Rules for each section:
-- prose: 3-4 paragraphs. First paragraph = who they are as a buyer (identity). Second = what they actually need vs what they say. Third = how their life will work in this home. Optional fourth = something surprising.
-- blindSpots: 3-5 contradictions or hidden needs they haven't articulated. Each should be actionable and specific. Include dollar amounts or timelines where relevant.
-- searchStrategy: One dense paragraph that an agent could use as a literal search brief. Include: neighborhood type, home style, must-haves, price positioning, and what to skip.
-- personalNote: The "magic moment" — reference something specific from their free-text answers or scenario choices that shows you really paid attention. Make it feel like the system "gets" them on a human level.`
+- prose: 3-4 paragraphs. First = who they are as a buyer (identity). Second = what they actually need vs what they say. Third = how their life will work in this home.
+- blindSpots: 3-5 contradictions or hidden needs. Each actionable and specific. Include dollar amounts or timelines where relevant.
+- searchStrategy: One dense paragraph an agent could use as a literal search brief. Include: neighborhood type, home style, must-haves, price positioning.
+- personalNote: The "magic moment" — reference something specific from their free-text answers that shows you really paid attention.`
 }
 
 function buildUserPrompt(answers: Record<string, unknown>, locale: "en" | "zh"): string {
-  // Clean up answers for the prompt (remove internal fields)
   const cleanAnswers = { ...answers }
   delete cleanAnswers._feedback
 
@@ -125,12 +109,7 @@ ${JSON.stringify(cleanAnswers, null, 2)}
 
 ${context}
 
-Analyze these answers deeply. Look for:
-1. What their priority ranking reveals vs what their scenario answers suggest (contradictions?)
-2. What their pain points + Saturday morning choices say about their actual lifestyle
-3. What their budget math + timeline + flexibility suggests about urgency
-4. What their home style + era + features preferences say about their aesthetic identity
-5. Any free-text notes that reveal things the structured questions didn't capture
+Analyze deeply. Look for contradictions between priority ranking and scenario answers, hidden needs from pain points + lifestyle choices, and anything their free-text reveals that structured questions missed.
 
-Generate the portrait narrative now. Remember: every sentence must reference specific data from their answers. No generic advice.`
+Respond with ONLY the JSON object, no other text.`
 }
