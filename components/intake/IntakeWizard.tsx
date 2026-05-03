@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { calculatePerCity, MA_TAX_RATES, type CityAffordability } from "@/lib/financial/affordability"
 import { RangeSlider } from "@/components/ui/range-slider"
+import { useI18n, LanguageSwitcher } from "@/lib/i18n/context"
 
 interface IntakeWizardProps {
   buyerProfileId: string
@@ -13,6 +14,7 @@ interface IntakeWizardProps {
 }
 
 export function IntakeWizard({ buyerProfileId, onComplete }: IntakeWizardProps) {
+  const { t } = useI18n()
   const [step, setStep] = useState(0)
   const [answers, setAnswers] = useState<Record<string, unknown>>({})
   const [submitting, setSubmitting] = useState(false)
@@ -71,17 +73,20 @@ export function IntakeWizard({ buyerProfileId, onComplete }: IntakeWizardProps) 
             disabled={step === 0}
             className="text-sm text-slate-500 hover:text-slate-900 disabled:invisible"
           >
-            ← Back
+            {t("common.back")}
           </button>
-          <span className="text-xs text-slate-400">
-            {step + 1} of {ACTIVE_QUESTIONS.length}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400">
+              {step + 1} {t("common.of")} {ACTIVE_QUESTIONS.length}
+            </span>
+            <LanguageSwitcher />
+          </div>
           {!question.required && !isLast && (
             <button
               onClick={handleNext}
               className="text-sm text-slate-400 hover:text-slate-600"
             >
-              Skip →
+              {t("common.skip")}
             </button>
           )}
           {question.required && <div className="w-12" />}
@@ -91,10 +96,12 @@ export function IntakeWizard({ buyerProfileId, onComplete }: IntakeWizardProps) 
       {/* Question content */}
       <div className="flex-1 flex flex-col justify-center px-6 py-8 max-w-lg mx-auto w-full">
         <h2 className="text-2xl font-bold text-slate-900 mb-2">
-          {question.label}
+          {t(`q.${question.id}.label`) !== `q.${question.id}.label` ? t(`q.${question.id}.label`) : question.label}
         </h2>
         {question.subtitle && (
-          <p className="text-slate-500 mb-6">{question.subtitle}</p>
+          <p className="text-slate-500 mb-6">
+            {t(`q.${question.id}.subtitle`) !== `q.${question.id}.subtitle` ? t(`q.${question.id}.subtitle`) : question.subtitle}
+          </p>
         )}
 
         <div className="flex-1 flex flex-col justify-center">
@@ -123,7 +130,7 @@ export function IntakeWizard({ buyerProfileId, onComplete }: IntakeWizardProps) 
             onClick={handleSubmit}
             disabled={submitting}
           >
-            {submitting ? "Submitting..." : "Complete Intake →"}
+            {submitting ? t("common.submitting") : t("common.submit")}
           </Button>
         ) : (
           <Button
@@ -131,7 +138,7 @@ export function IntakeWizard({ buyerProfileId, onComplete }: IntakeWizardProps) 
             onClick={handleNext}
             disabled={!canAdvance()}
           >
-            Continue
+            {t("common.continue")}
           </Button>
         )}
       </div>
