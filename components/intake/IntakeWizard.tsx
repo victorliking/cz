@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef, useMemo } from "react"
+import { useState, useCallback, useRef, useMemo, useEffect } from "react"
 import { ACTIVE_QUESTIONS, type IntakeQuestion } from "@/lib/questionnaire/intake-schema"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -481,8 +481,14 @@ interface AffordabilityData {
   cityBreakdown?: CityAffordability[]
 }
 
-// Loan type options with current market rates
-const LOAN_OPTIONS = [
+interface LoanOption {
+  label: string
+  rate: number
+  desc: string
+}
+
+// Default loan options (used before live rates load)
+const DEFAULT_LOAN_OPTIONS: LoanOption[] = [
   { label: "30yr Fixed", rate: 6.85, desc: "Most common" },
   { label: "15yr Fixed", rate: 6.10, desc: "Higher payment, less interest" },
   { label: "7/1 ARM", rate: 6.35, desc: "Lower initial rate" },
@@ -501,7 +507,32 @@ function AffordabilityInput({
   const [monthlyMax, setMonthlyMax] = useState(4500)
   const [downMin, setDownMin] = useState(value?.downPayment || 100000)
   const [downMax, setDownMax] = useState(200000)
-  const [selectedLoan, setSelectedLoan] = useState(LOAN_OPTIONS[0])
+  const [loanOptions, setLoanOptions] = useState<LoanOption[]>(DEFAULT_LOAN_OPTIONS)
+  const [selectedLoan, setSelectedLoan] = useState<LoanOption>(DEFAULT_LOAN_OPTIONS[0])
+  const [rateSource, setRateSource] = useState<string>("")
+  const [rateAsOf, setRateAsOf] = useState<string>("")
+
+  // Fetch live rates on mount
+  useEffect(() => {
+    fetch("/api/rates")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.thirtyYearFixed) {
+          const live: LoanOption[] = [
+            { label: "30yr Fixed", rate: data.thirtyYearFixed, desc: "Most common" },
+            { label: "15yr Fixed", rate: data.fifteenYearFixed, desc: "Higher payment, less interest" },
+            { label: "7/1 ARM", rate: data.sevenOneArm, desc: "Lower initial rate" },
+            { label: "FHA 30yr", rate: data.fhaThirtyYear, desc: "Low down payment OK" },
+            { label: "VA 30yr", rate: data.vaThirtyYear, desc: "Veterans, no PMI" },
+          ]
+          setLoanOptions(live)
+          setSelectedLoan(live[0])
+          setRateSource(data.source || "")
+          setRateAsOf(data.asOf || "")
+        }
+      })
+      .catch(() => {/* use defaults */})
+  }, [])
 
   const rate = selectedLoan.rate
 
@@ -641,7 +672,7 @@ function AffordabilityInput({
       <div>
         <label className="text-sm font-medium text-slate-700 mb-2 block">Loan type (current market rates)</label>
         <div className="grid grid-cols-1 gap-2">
-          {LOAN_OPTIONS.map((opt) => (
+          {loanOptions.map((opt) => (
             <button
               key={opt.label}
               type="button"
@@ -664,6 +695,11 @@ function AffordabilityInput({
             </button>
           ))}
         </div>
+        {rateSource && (
+          <p className="text-xs text-slate-400 mt-2">
+            📊 Source: {rateSource}{rateAsOf ? ` (week of ${rateAsOf})` : ""}
+          </p>
+        )}
       </div>
 
       {/* Results */}
