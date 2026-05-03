@@ -289,8 +289,8 @@ function ChipMultiInput({
 
   return (
     <div className="space-y-3">
-      {maxSelections && (
-        <p className="text-xs text-slate-400">{selected.length}/{maxSelections} selected</p>
+      {maxSelections != null && (
+        <p className="text-xs text-slate-400">{selected.length} / {maxSelections} selected</p>
       )}
       <div className="grid grid-cols-2 gap-2">
         {options.map((opt) => (
