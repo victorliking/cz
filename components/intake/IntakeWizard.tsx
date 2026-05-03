@@ -292,14 +292,14 @@ function ChipMultiInput({
       {maxSelections && (
         <p className="text-xs text-slate-400">{selected.length}/{maxSelections} selected</p>
       )}
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {options.map((opt) => (
           <button
             key={opt}
             type="button"
             onClick={() => toggle(opt)}
             className={cn(
-              "px-4 py-3 rounded-full border text-sm font-medium transition-all text-left",
+              "px-3 py-2.5 rounded-lg border text-sm font-medium transition-all text-left",
               selected.includes(opt)
                 ? "bg-blue-500 text-white border-blue-500 shadow-sm"
                 : "bg-white text-slate-700 border-slate-200 hover:border-blue-300 hover:bg-blue-50",
