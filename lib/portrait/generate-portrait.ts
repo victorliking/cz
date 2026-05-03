@@ -144,48 +144,168 @@ export const ARCHETYPES: Record<string, ArchetypeInfo> = {
     typeZh: "安家型",
     headline: "You're building a home your family will grow into.",
     headlineZh: "你在为家人打造一个可以成长的家。",
-    description: "Family is the center of every decision. You prioritize school districts, safe streets, and room for kids to run. You think 7-10 years ahead — not just what works today, but what fits when your family grows.",
-    descriptionZh: "家庭是你做所有决策的核心。你优先考虑学区、安全的街道、孩子可以奔跑的空间。你的视野是7-10年——不是现在够用就行，而是家庭壮大后依然合适。",
+    description: `Family is the center of every decision you make about housing. You don't just want a home — you want a foundation.
+
+**How you think:** You evaluate every home through the lens of "will this work in 5 years?" You picture your kids walking to school, playing in the backyard, growing up in these rooms. You think about the neighborhood as much as the house — safe streets, good families nearby, a sense of community.
+
+**What drives you:** School districts (you've probably already researched ratings), a quiet residential street, enough bedrooms to grow into, a yard with room to play. You want stability and roots.
+
+**Your style:** You gravitate toward traditional homes — Colonials, Capes, Craftsmans. You like homes that feel "established" — mature trees, real neighborhoods, not brand-new developments. The kitchen needs to work for family life (quick breakfasts, homework at the counter, Sunday cooking).
+
+**Watch out for:** You tend to over-index on schools and under-index on your own daily happiness. Make sure the commute doesn't destroy your evenings. Also: you often say 3 bedrooms but actually need 4 (office + future kid). Be honest about that now.
+
+**Your ideal Saturday:** Kids are playing outside while you drink coffee by the window. You walk them to a nearby playground. The house is quiet enough to hear birds, close enough to walk somewhere for a pastry.`,
+    descriptionZh: `家庭是你所有住房决策的核心。你不只是想要一个房子——你要的是一个根基。
+
+**你的思考方式：** 你看每套房都会想"5年后还合适吗？"你会想象孩子走路上学、在后院玩耍、在这些房间里长大。你对社区的关注不亚于房子本身——安全的街道、好的邻居家庭、社区归属感。
+
+**驱动你的东西：** 学区（你可能已经研究过评分了）、安静的住宅区、够用的卧室数、有活动空间的院子。你想要稳定和归属感。
+
+**你的风格偏好：** 你倾向传统房型——Colonial、Cape、Craftsman。你喜欢"有沉淀感"的房子——成熟的大树、真正的社区、不是刚建好的开发项目。厨房需要适合家庭生活（快速早餐、孩子在吧台写作业、周日做饭）。
+
+**注意事项：** 你容易过度关注学区而忽视自己的日常幸福感。确保通勤不会毁掉你的晚间生活。另外：你往往说3间卧室就够了，但其实需要4间（办公室+未来宝宝）。现在就对自己诚实。
+
+**你理想的周六：** 孩子在外面玩，你在窗边喝咖啡。走路带他们去附近的游乐场。房子安静到能听到鸟鸣，又近到能步行去买个糕点。`,
   },
   urbanist: {
     type: "The Urbanist",
     typeZh: "都市型",
     headline: "You want to walk out the door and have life happen.",
     headlineZh: "你要的是出门就有生活。",
-    description: "Convenience is king. You'd trade square footage for a walkable neighborhood with cafés, transit, and a short commute. The neighborhood matters more than the house itself.",
-    descriptionZh: "便利是你的第一追求。你愿意用面积换步行可达的街区——咖啡店、地铁、短通勤。社区比房子本身更重要。",
+    description: `Convenience isn't a luxury for you — it's a requirement. The neighborhood IS the home.
+
+**How you think:** You evaluate homes by what's within a 10-minute walk, not by square footage. A smaller place in the perfect location beats a mansion in the suburbs every time. You'd rather bike to work than have a three-car garage.
+
+**What drives you:** Walk Score, transit access, the café on the corner, the grocery store two blocks away. You want to feel the energy of a neighborhood. Driving everywhere feels like a failure of planning.
+
+**Your style:** You're drawn to village centers, main street adjacency, townhouses with character. You appreciate density done well — not cookie-cutter, but curated. You'd pick a renovated 1920s apartment over a 2020 suburban box.
+
+**Watch out for:** You sometimes sacrifice too much space for location. Make sure you actually have room to live, work from home, and store your things. Also: walkable streets are louder — you'll need to find the sweet spot (side street, 2 blocks from Main).
+
+**Your ideal Saturday:** You walk to get coffee, browse a farmers market, grab lunch at a neighborhood spot — all without touching your car keys. The house is your base camp, not your whole world.`,
+    descriptionZh: `便利对你不是奢侈品——是必需品。社区本身就是你的家。
+
+**你的思考方式：** 你评价房子不看面积，看10分钟步行范围内有什么。完美位置的小房子永远赢过郊区的大豪宅。你宁可骑车上班也不要三车位车库。
+
+**驱动你的东西：** Walk Score、公交可达性、街角的咖啡店、两条街外的超市。你想感受社区的活力。到处开车对你来说是规划的失败。
+
+**你的风格偏好：** 你喜欢 village center、靠近主街的位置、有特色的联排。你欣赏做得好的密度——不是千篇一律，而是有策划感的。你会选翻新的1920年代公寓，而不是2020年的郊区新房。
+
+**注意事项：** 你有时候为了位置牺牲太多空间。确保你真的有地方生活、远程办公、存放东西。另外：步行分高的街通常更吵——你需要找到甜蜜点（小巷，离主街2个block）。
+
+**你理想的周六：** 走路去买咖啡，逛农夫市集，在社区小店吃午饭——全程不碰车钥匙。房子是你的大本营，不是你的全世界。`,
   },
   entertainer: {
     type: "The Entertainer",
     typeZh: "社交型",
     headline: "Your home is where people gather.",
     headlineZh: "你的家是人们聚集的地方。",
-    description: "You live to host. Open kitchens, flow between indoor and outdoor, space for a crowd. The dining table and backyard deck are as important as the master bedroom.",
-    descriptionZh: "你热爱招待朋友。开放式厨房、室内外流通、容纳人群的空间。餐桌和后院的deck跟主卧一样重要。",
+    description: `You don't just live in your home — you perform in it. Every space is evaluated by how it works when people are over.
+
+**How you think:** You walk into a house and immediately imagine where 8 people would sit for dinner, whether the kitchen island has room for friends to lean against while you cook, if the backyard can handle a summer party. Flow matters more than formal rooms.
+
+**What drives you:** An open kitchen that connects to living space, indoor-outdoor flow (deck, patio, sliding doors), a dining area that fits a real table, and a yard that's actually usable — flat, accessible, and not a postage stamp.
+
+**Your style:** Open concept is non-negotiable. You want the cook to be part of the conversation, not isolated in a galley. Modern or renovated kitchens with counter space and good appliances. Outdoor living that feels like an extension of the house.
+
+**Watch out for:** You might over-prioritize entertaining spaces and under-prioritize private retreats. You still need a quiet bedroom, a functional bathroom routine for two, and storage for all the stuff that accumulates. Don't forget: you host 20% of the time but live there 100%.
+
+**Your ideal Saturday:** Friends coming over at 5pm — you're prepping in the kitchen with music playing, doors open to the backyard. Kids running between inside and outside. It's effortless because the space was designed for exactly this.`,
+    descriptionZh: `你不只是住在家里——你在家里"表演"。每个空间都按"有人来的时候好不好用"来评估。
+
+**你的思考方式：** 你走进一个房子，立刻想象8个人坐哪儿吃饭、厨房岛台够不够朋友靠着聊天、后院能不能办夏天派对。空间流动比正式房间重要。
+
+**驱动你的东西：** 连通客厅的开放厨房、室内外过渡（deck、patio、推拉门）、能放大桌子的餐区、真正好用的院子——平坦、可达、不是邮票大小。
+
+**你的风格偏好：** 开放式格局不可商量。你要做饭的人也能参与对话，不是被关在窄厨房里。现代或翻新过的厨房，有台面空间和好家电。户外生活区感觉像房子的延伸。
+
+**注意事项：** 你可能过度关注社交空间而忽略私密休息区。你仍然需要安静的卧室、两个人用起来顺畅的浴室、还有收纳所有杂物的地方。别忘了：你20%的时间在招待，但100%的时间住在那里。
+
+**你理想的周六：** 朋友们5点来——你在厨房备菜，音乐放着，后院门开着。孩子在里外跑来跑去。一切轻松自然，因为空间本来就是为这个设计的。`,
   },
   aesthete: {
     type: "The Aesthete",
     typeZh: "感官型",
     headline: "You feel a home before you think about it.",
     headlineZh: "你是先感受一个家，再去思考它。",
-    description: "Light, materials, proportions — you notice things others don't. You'd rather have a smaller beautiful home than a bigger bland one. Quality finishes and architectural character are non-negotiable.",
-    descriptionZh: "光线、材质、比例——你注意到别人忽略的细节。你宁要小而美，不要大而平。质感和建筑特色不可妥协。",
+    description: `You walk into a home and within 30 seconds you know. It's not about the spec sheet — it's about how the light falls, how the rooms breathe, whether the space has soul.
+
+**How you think:** You notice things most buyers don't — the quality of afternoon light through south-facing windows, the way a staircase turns, whether the trim work is original, if the proportions of a room feel right. You trust your gut reaction more than a checklist.
+
+**What drives you:** Natural light (this is almost always #1), architectural character, quality materials, thoughtful proportions. You'd rather have a beautifully designed 1,400 sqft home than a bland 2,200 sqft one. Details matter: hardware, flooring, ceiling height, window style.
+
+**Your style:** You appreciate homes with history and personality — Craftsman details, Victorian character, mid-century lines. You respond to south-facing light, high ceilings, interesting angles. You probably have opinions about paint colors. You'd rather do it right or not at all.
+
+**Watch out for:** You can fall in love with a beautiful home that doesn't actually work for your life. That gorgeous Victorian might have 7-foot ceilings on the third floor, no closet space, and a bathroom from 1962. Balance soul with function. Also: beautiful homes command a premium — be ready to pay 10-15% more for "the one."
+
+**Your ideal Saturday:** Morning light streams into the kitchen as you make pour-over coffee. You sit in a room that feels proportioned perfectly — not too big, not cramped. You notice how the light moves through the house as the day progresses.`,
+    descriptionZh: `你走进一个房子，30秒内就知道了。不是看参数——是光线怎么落下来、房间怎么呼吸、空间有没有灵魂。
+
+**你的思考方式：** 你注意到大多数买家不会注意的东西——下午阳光透过南向窗户的质感、楼梯转弯的方式、装饰条是不是原装的、房间比例对不对。你相信直觉反应胜过清单。
+
+**驱动你的东西：** 自然光（几乎总是第一位）、建筑特色、材质质感、用心的比例。你宁要设计精美的1400尺房子，不要平庸的2200尺。细节很重要：五金件、地板、层高、窗户样式。
+
+**你的风格偏好：** 你欣赏有历史和个性的房子——Craftsman细节、Victorian特色、Mid-century线条。你对南向光、高天花、有趣角度有反应。你大概对墙漆颜色有想法。你要么做对，要么不做。
+
+**注意事项：** 你可能会爱上一个漂亮但实际不适合你生活的房子。那栋华丽的Victorian可能三楼层高只有7尺、没有衣柜空间、浴室还是1962年的。在灵魂和功能之间找平衡。另外：漂亮的房子有溢价——准备好为"命中注定"多付10-15%。
+
+**你理想的周六：** 晨光洒进厨房，你在做手冲咖啡。你坐在一个比例完美的房间里——不太大也不局促。你注意到光线随着一天的推移在房子里移动。`,
   },
   pragmatist: {
     type: "The Pragmatist",
     typeZh: "实用型",
     headline: "You see potential where others see problems.",
     headlineZh: "你能在别人看到问题的地方看到潜力。",
-    description: "You think in terms of value and upside. A home that needs work doesn't scare you — it excites you. Layout, lot size, and location are what matter; everything else can be changed.",
-    descriptionZh: "你用价值和升值潜力的角度思考。需要装修的房子不吓你——反而让你兴奋。布局、占地和位置才重要，其他都能改。",
+    description: `Where others see a dated kitchen, you see $40k in instant equity. You think like an investor even when buying your own home.
+
+**How you think:** You evaluate homes by their bones — structure, lot size, location, layout. Everything cosmetic is noise to you. You can see through ugly wallpaper to the 2,400 sqft on a corner lot with south exposure. You're running numbers while other buyers are checking the paint color.
+
+**What drives you:** Value relative to market, lot size and potential, good bones (foundation, roof, mechanicals), a layout that works or can be opened up. You'd rather buy below market and invest $50-80k in renovation than pay full price for someone else's taste.
+
+**Your style:** You don't have a fixed aesthetic because you know you'll create your own. You look for structural advantages: oversized lots, extra depth, legal ADU potential, expansion possibility. Ranch homes you can add a second floor, Colonials with unfinished attics, properties with detached garages that could become studios.
+
+**Watch out for:** Not every "fixer" is a good deal. Some have structural issues that eat your entire renovation budget. Get inspections before falling in love with potential. Also: your partner/family might not share your vision — a home that's "great in 18 months" needs to be livable on day one.
+
+**Your ideal Saturday:** You're sketching renovation plans at the kitchen table, calling contractors for quotes, researching permits. The house is a project and you love it. Six months from now it'll be exactly what you want — and worth $100k more than you paid.`,
+    descriptionZh: `别人看到过时的厨房，你看到的是$40k的即时增值空间。即使买自住房，你也像投资者一样思考。
+
+**你的思考方式：** 你按"骨架"评估房子——结构、占地、位置、布局。所有表面装饰对你来说都是噪音。你能透过丑陋壁纸看到转角地块上的2400尺南向房。别人在看墙漆颜色时，你在算数字。
+
+**驱动你的东西：** 相对市场的价值、占地面积和潜力、好的骨架（地基、屋顶、机械系统）、合理或能打通的布局。你宁愿低于市价买入然后投$50-80k装修，也不想为别人的品味付全价。
+
+**你的风格偏好：** 你没有固定审美因为你知道会自己创造。你寻找结构优势：超大地块、额外进深、合法ADU潜力、扩建可能。你看Ranch想加二层、看Colonial想利用未完工阁楼、看带独立车库的房想改成工作室。
+
+**注意事项：** 不是每个"Fixer"都是好deal。有些有结构问题会吃掉你整个装修预算。爱上潜力之前先做检查。另外：你的伴侣/家人可能不共享你的愿景——一个"18个月后会很棒"的房子，第一天也得能住。
+
+**你理想的周六：** 你在厨房桌上画装修图纸、打电话问承包商报价、研究许可证。房子是个项目，你乐在其中。6个月后它会变成你想要的样子——而且比你买的时候值多$100k。`,
   },
   explorer: {
     type: "The Explorer",
     typeZh: "探索型",
     headline: "You're still discovering what matters most.",
     headlineZh: "你还在发现什么对你最重要。",
-    description: "You're open-minded and early in the process. Your preferences will sharpen as you see real homes. We'll cast a wide net and narrow based on your reactions.",
-    descriptionZh: "你心态开放，还在早期探索阶段。随着看到真实的房子，你的偏好会逐渐清晰。我们会先广撒网，再根据你的反应收窄范围。",
+    description: `You're at the beginning of your journey and that's perfectly fine. You don't fully know what you want yet — and that's actually an advantage.
+
+**How you think:** You're open to possibilities. You haven't locked yourself into one neighborhood or one style. You're gathering data — every open house teaches you something about your own preferences. You're still figuring out the trade-offs.
+
+**What drives you:** Curiosity and possibility. You want to see what's out there before committing. You might surprise yourself — the neighborhood you thought you wanted might not feel right in person, and somewhere unexpected might click instantly.
+
+**Your style:** Undefined yet, and that's okay. You'll know it when you see it. Your style will emerge from reactions to real homes, not from Pinterest boards. Pay attention to your gut — the homes that make you linger are telling you something.
+
+**Watch out for:** Analysis paralysis. At some point you need to commit to a direction. Don't let perfect be the enemy of good. Also: the market doesn't wait — if you're exploring for too long in a competitive market, you'll watch homes sell that you would have loved. Set a timeline for when "exploring" becomes "actively searching."
+
+**Your ideal Saturday:** You're at three open houses in different neighborhoods, each one teaching you something new about what you actually respond to. You're building your filter with real experience, not assumptions.`,
+    descriptionZh: `你在旅程的起点，这完全没问题。你还不完全知道自己想要什么——这其实是个优势。
+
+**你的思考方式：** 你对各种可能性保持开放。你没有把自己锁定在某个社区或某种风格。你在收集数据——每次开放日都在教你关于自己偏好的东西。你还在弄清楚取舍关系。
+
+**驱动你的东西：** 好奇心和可能性。你想在承诺之前看看外面有什么。你可能会惊讶自己——你以为想要的社区可能现场感觉不对，而某个意想不到的地方可能瞬间就点击了。
+
+**你的风格偏好：** 还没定义，没关系。看到了你就知道。你的风格会从对真实房子的反应中浮现，而不是从Pinterest板上。关注你的直觉——让你想多待一会儿的房子在告诉你什么。
+
+**注意事项：** 分析瘫痪。某个时刻你需要选定方向。不要让完美成为好的敌人。另外：市场不等人——如果你在竞争激烈的市场里探索太久，你会看着本来会爱上的房子被别人买走。设定一个时间线：什么时候从"探索"变成"积极寻找"。
+
+**你理想的周六：** 你在三个不同社区看了三场开放日，每一场都教你一些关于自己真正反应什么的新东西。你在用真实体验而不是假设来建立你的筛选标准。`,
   },
 }
 

@@ -380,11 +380,30 @@ function EvolutionLog() {
 // --- Archetype Section ---
 function ArchetypeSection({ archetype }: { archetype: { type: string; headline: string } }) {
   const { locale } = useI18n()
+  const [expanded, setExpanded] = useState(false)
+
   // Find matching archetype info
   const key = Object.keys(ARCHETYPES).find(
     (k) => ARCHETYPES[k].type === archetype.type
   )
   const info = key ? ARCHETYPES[key] : null
+
+  const renderDescription = (text: string) => {
+    // Split into paragraphs and render with bold headers
+    return text.split("\n\n").map((para, i) => {
+      // Check if paragraph starts with **Header:**
+      const boldMatch = para.match(/^\*\*(.+?):\*\*\s*(.+)/)
+      if (boldMatch) {
+        return (
+          <div key={i} className="mt-3">
+            <p className="text-xs font-semibold text-slate-700 uppercase tracking-wide mb-1">{boldMatch[1]}</p>
+            <p className="text-sm text-slate-600 leading-relaxed">{boldMatch[2]}</p>
+          </div>
+        )
+      }
+      return <p key={i} className="text-sm text-slate-600 leading-relaxed mt-2">{para}</p>
+    })
+  }
 
   return (
     <section className="pb-4 border-b">
@@ -392,13 +411,31 @@ function ArchetypeSection({ archetype }: { archetype: { type: string; headline: 
       <h2 className="text-xl font-bold text-slate-900">
         {info ? (locale === "zh" ? `${info.typeZh} · ${info.type}` : info.type) : archetype.type}
       </h2>
-      <p className="text-sm text-slate-600 mt-1">
+      <p className="text-base text-slate-700 mt-1 font-medium">
         {info ? (locale === "zh" ? info.headlineZh : info.headline) : archetype.headline}
       </p>
       {info && (
-        <p className="text-sm text-slate-500 mt-2 leading-relaxed">
-          {locale === "zh" ? info.descriptionZh : info.description}
-        </p>
+        <>
+          {!expanded && (
+            <button
+              onClick={() => setExpanded(true)}
+              className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-medium"
+            >
+              Read full profile →
+            </button>
+          )}
+          {expanded && (
+            <div className="mt-3 space-y-1">
+              {renderDescription(locale === "zh" ? info.descriptionZh : info.description)}
+              <button
+                onClick={() => setExpanded(false)}
+                className="mt-3 text-xs text-slate-400 hover:text-slate-600"
+              >
+                Collapse
+              </button>
+            </div>
+          )}
+        </>
       )}
     </section>
   )
