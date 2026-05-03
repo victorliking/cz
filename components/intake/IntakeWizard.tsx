@@ -564,77 +564,77 @@ function AffordabilityInput({
       {/* Monthly payment range */}
       <div>
         <label className="text-sm font-medium text-slate-700 mb-2 block">Monthly payment range</label>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs text-slate-500 w-16">Comfort:</span>
-          <span className="text-sm font-bold text-slate-900">${monthlyMin.toLocaleString()}</span>
-          <span className="text-xs text-slate-400 mx-1">to</span>
-          <span className="text-xs text-slate-500 w-10">Max:</span>
-          <span className="text-sm font-bold text-slate-900">${monthlyMax.toLocaleString()}</span>
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 w-12">Low</span>
-            <input
-              type="range" min={1500} max={10000} step={100} value={monthlyMin}
-              onChange={(e) => {
-                const v = Math.min(Number(e.target.value), monthlyMax - 100)
-                setMonthlyMin(v)
-                emitChange(v, monthlyMax, downMin, downMax, rate)
-              }}
-              className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-            />
+        <div className="grid grid-cols-2 gap-3 mb-1">
+          <div>
+            <span className="text-xs text-slate-500">Comfortable</span>
+            <div className="relative mt-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+              <input
+                type="number" min={500} max={50000} step={100} value={monthlyMin}
+                onChange={(e) => {
+                  const v = Number(e.target.value) || 0
+                  setMonthlyMin(v)
+                  emitChange(v, Math.max(v, monthlyMax), downMin, downMax, rate)
+                }}
+                className="w-full pl-7 pr-3 py-2 rounded-md border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 w-12">High</span>
-            <input
-              type="range" min={1500} max={10000} step={100} value={monthlyMax}
-              onChange={(e) => {
-                const v = Math.max(Number(e.target.value), monthlyMin + 100)
-                setMonthlyMax(v)
-                emitChange(monthlyMin, v, downMin, downMax, rate)
-              }}
-              className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-green-500"
-            />
+          <div>
+            <span className="text-xs text-slate-500">Maximum</span>
+            <div className="relative mt-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+              <input
+                type="number" min={500} max={50000} step={100} value={monthlyMax}
+                onChange={(e) => {
+                  const v = Number(e.target.value) || 0
+                  setMonthlyMax(v)
+                  emitChange(monthlyMin, Math.max(v, monthlyMin), downMin, downMax, rate)
+                }}
+                className="w-full pl-7 pr-3 py-2 rounded-md border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
         </div>
+        <p className="text-xs text-slate-400">Per month, including principal, interest, tax & insurance</p>
       </div>
 
       {/* Down payment range */}
       <div>
         <label className="text-sm font-medium text-slate-700 mb-2 block">Down payment range</label>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs text-slate-500 w-16">Comfort:</span>
-          <span className="text-sm font-bold text-slate-900">${(downMin / 1000).toFixed(0)}k</span>
-          <span className="text-xs text-slate-400 mx-1">to</span>
-          <span className="text-xs text-slate-500 w-10">Max:</span>
-          <span className="text-sm font-bold text-slate-900">${(downMax / 1000).toFixed(0)}k</span>
-        </div>
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 w-12">Low</span>
-            <input
-              type="range" min={25000} max={500000} step={5000} value={downMin}
-              onChange={(e) => {
-                const v = Math.min(Number(e.target.value), downMax - 5000)
-                setDownMin(v)
-                emitChange(monthlyMin, monthlyMax, v, downMax, rate)
-              }}
-              className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-            />
+        <div className="grid grid-cols-2 gap-3 mb-1">
+          <div>
+            <span className="text-xs text-slate-500">Comfortable</span>
+            <div className="relative mt-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+              <input
+                type="number" min={0} max={5000000} step={5000} value={downMin}
+                onChange={(e) => {
+                  const v = Number(e.target.value) || 0
+                  setDownMin(v)
+                  emitChange(monthlyMin, monthlyMax, v, Math.max(v, downMax), rate)
+                }}
+                className="w-full pl-7 pr-3 py-2 rounded-md border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-400 w-12">High</span>
-            <input
-              type="range" min={25000} max={500000} step={5000} value={downMax}
-              onChange={(e) => {
-                const v = Math.max(Number(e.target.value), downMin + 5000)
-                setDownMax(v)
-                emitChange(monthlyMin, monthlyMax, downMin, v, rate)
-              }}
-              className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-green-500"
-            />
+          <div>
+            <span className="text-xs text-slate-500">Maximum</span>
+            <div className="relative mt-1">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">$</span>
+              <input
+                type="number" min={0} max={5000000} step={5000} value={downMax}
+                onChange={(e) => {
+                  const v = Number(e.target.value) || 0
+                  setDownMax(v)
+                  emitChange(monthlyMin, monthlyMax, downMin, Math.max(v, downMin), rate)
+                }}
+                className="w-full pl-7 pr-3 py-2 rounded-md border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
           </div>
         </div>
+        <p className="text-xs text-slate-400">Cash available for down payment at closing</p>
       </div>
 
       {/* Loan type selection */}
