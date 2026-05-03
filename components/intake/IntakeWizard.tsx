@@ -1,9 +1,10 @@
 "use client"
 
-import { useState, useCallback, useRef } from "react"
+import { useState, useCallback, useRef, useMemo } from "react"
 import { ACTIVE_QUESTIONS, type IntakeQuestion } from "@/lib/questionnaire/intake-schema"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { calculatePerCity, MA_TAX_RATES, type CityAffordability } from "@/lib/financial/affordability"
 
 interface IntakeWizardProps {
   buyerProfileId: string
@@ -151,6 +152,8 @@ function QuestionRenderer({
   switch (question.type) {
     case "dual_slider":
       return <DualSliderInput value={value as [number, number] | undefined} onChange={onChange} />
+    case "affordability":
+      return <AffordabilityInput value={value as AffordabilityData | undefined} onChange={onChange} />
     case "chip_single":
       return <ChipSingleInput options={question.options || []} value={value as string | undefined} onChange={onChange} />
     case "chip_multi":
@@ -464,6 +467,159 @@ function RankingInput({
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+// --- Affordability Calculator Input ---
+
+interface AffordabilityData {
+  monthlyPayment: number
+  downPayment: number
+  interestRate: number
+  budgetRange: [number, number]
+  cityBreakdown?: CityAffordability[]
+}
+
+function AffordabilityInput({
+  value,
+  onChange,
+}: {
+  value?: AffordabilityData
+  onChange: (val: AffordabilityData) => void
+}) {
+  const [monthly, setMonthly] = useState(value?.monthlyPayment || 3500)
+  const [down, setDown] = useState(value?.downPayment || 150000)
+  const [rate, setRate] = useState(value?.interestRate || 6.8)
+
+  const cityResults = useMemo(() => {
+    return calculatePerCity({
+      monthlyPaymentComfort: monthly,
+      downPayment: down,
+      interestRate: rate / 100,
+      targetCities: Object.keys(MA_TAX_RATES),
+    })
+  }, [monthly, down, rate])
+
+  const avgMax = useMemo(() => {
+    if (cityResults.length === 0) return 0
+    return Math.round(cityResults.reduce((s, c) => s + c.maxPrice, 0) / cityResults.length)
+  }, [cityResults])
+
+  // Update parent whenever inputs change
+  const emitChange = useCallback((m: number, d: number, r: number) => {
+    const results = calculatePerCity({
+      monthlyPaymentComfort: m,
+      downPayment: d,
+      interestRate: r / 100,
+      targetCities: Object.keys(MA_TAX_RATES),
+    })
+    const avg = Math.round(results.reduce((s, c) => s + c.maxPrice, 0) / results.length)
+    onChange({
+      monthlyPayment: m,
+      downPayment: d,
+      interestRate: r,
+      budgetRange: [Math.round(avg * 0.85), Math.round(avg * 1.15)],
+      cityBreakdown: results,
+    })
+  }, [onChange])
+
+  return (
+    <div className="space-y-6">
+      {/* Monthly payment */}
+      <div>
+        <div className="flex justify-between items-baseline mb-1">
+          <label className="text-sm font-medium text-slate-700">Comfortable monthly payment</label>
+          <span className="text-lg font-bold text-slate-900">${monthly.toLocaleString()}/mo</span>
+        </div>
+        <input
+          type="range"
+          min={1500}
+          max={10000}
+          step={100}
+          value={monthly}
+          onChange={(e) => {
+            const v = Number(e.target.value)
+            setMonthly(v)
+            emitChange(v, down, rate)
+          }}
+          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+        />
+        <div className="flex justify-between text-xs text-slate-400 mt-1">
+          <span>$1,500</span>
+          <span>$10,000</span>
+        </div>
+      </div>
+
+      {/* Down payment */}
+      <div>
+        <div className="flex justify-between items-baseline mb-1">
+          <label className="text-sm font-medium text-slate-700">Down payment</label>
+          <span className="text-lg font-bold text-slate-900">${(down / 1000).toFixed(0)}k</span>
+        </div>
+        <input
+          type="range"
+          min={25000}
+          max={500000}
+          step={5000}
+          value={down}
+          onChange={(e) => {
+            const v = Number(e.target.value)
+            setDown(v)
+            emitChange(monthly, v, rate)
+          }}
+          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+        />
+        <div className="flex justify-between text-xs text-slate-400 mt-1">
+          <span>$25k</span>
+          <span>$500k</span>
+        </div>
+      </div>
+
+      {/* Interest rate */}
+      <div>
+        <div className="flex justify-between items-baseline mb-1">
+          <label className="text-sm font-medium text-slate-700">Loan rate (30yr fixed)</label>
+          <span className="text-base font-bold text-slate-900">{rate.toFixed(1)}%</span>
+        </div>
+        <input
+          type="range"
+          min={4.0}
+          max={9.0}
+          step={0.1}
+          value={rate}
+          onChange={(e) => {
+            const v = Number(e.target.value)
+            setRate(v)
+            emitChange(monthly, down, v)
+          }}
+          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+        />
+        <div className="flex justify-between text-xs text-slate-400 mt-1">
+          <span>4.0%</span>
+          <span>9.0%</span>
+        </div>
+      </div>
+
+      {/* Results */}
+      {avgMax > 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-3">
+          <p className="text-sm font-semibold text-green-800">
+            💰 You can afford up to ~${(avgMax / 1000).toFixed(0)}k (average across MA towns)
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {cityResults.slice(0, 6).map((c) => (
+              <div key={c.city} className="flex justify-between text-xs p-2 bg-white rounded-md">
+                <span className="text-slate-600">{c.city}</span>
+                <span className="font-semibold text-slate-900">${(c.maxPrice / 1000).toFixed(0)}k</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-green-600">
+            Includes property tax ({cityResults[0]?.taxRate ? `${(cityResults[0].taxRate / 10).toFixed(2)}%` : "~1%"}), insurance, {down / avgMax < 0.2 ? "PMI, " : ""}and principal/interest
+          </p>
+        </div>
+      )}
     </div>
   )
 }

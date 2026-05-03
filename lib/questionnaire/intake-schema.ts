@@ -12,6 +12,7 @@
 
 export type QuestionType =
   | 'dual_slider'
+  | 'affordability'
   | 'chip_single'
   | 'chip_multi'
   | 'multi_input'
@@ -32,14 +33,13 @@ export interface IntakeQuestion {
 }
 
 export const INTAKE_QUESTIONS: IntakeQuestion[] = [
-  // Q1: Budget
+  // Q1: Affordability Calculator
   {
     id: 'budget',
-    type: 'dual_slider',
-    label: 'What\'s your budget range?',
-    subtitle: 'Drag the handles to set your comfortable range.',
+    type: 'affordability',
+    label: 'Let\'s figure out what you can afford',
+    subtitle: 'We\'ll calculate your buying power per city, including taxes and insurance.',
     required: true,
-    immediateValueTemplate: 'In your area, that gets you roughly: 3BR/2BA homes around 1800sqft',
   },
 
   // Q2: Bedrooms

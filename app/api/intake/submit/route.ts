@@ -56,7 +56,12 @@ export async function POST(request: NextRequest) {
   })
 
   // Update buyer profile with structured data from intake
-  const budget = cleanAnswers.budget as [number, number] | undefined
+  // Budget can be: { monthlyPayment, downPayment, interestRate, budgetRange: [min, max] } (affordability)
+  // or legacy [min, max] (dual_slider)
+  const budgetRaw = cleanAnswers.budget as any
+  const budget: [number, number] | undefined = Array.isArray(budgetRaw)
+    ? budgetRaw
+    : budgetRaw?.budgetRange
   const bedroomsMin = cleanAnswers.bedrooms_min as string | undefined
   const bathroomsMin = cleanAnswers.bathrooms_min as string | undefined
   const propertyTypes = cleanAnswers.property_types as string[] | undefined
