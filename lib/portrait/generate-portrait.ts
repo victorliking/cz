@@ -138,12 +138,31 @@ function deriveInsights(
     insights.push("Hosting isn't a priority — we won't penalize smaller dining rooms or lack of guest space.")
   }
 
-  // Walkability
+  // Walkability & errands
   if (
     saturdayMorning.includes("Walking to a café or farmers market") ||
+    saturdayMorning.includes("Quick errands — grocery, pharmacy all nearby") ||
     dealbreakers.includes("Not walkable — have to drive for everything")
   ) {
-    insights.push("Walkability matters to you — we'll weight Walk Score in your recommendations.")
+    insights.push("Walkability & convenience matter — we'll weight Walk Score and nearby amenities.")
+  }
+
+  // Kids & family
+  if (
+    saturdayMorning.includes("Playing with kids in the yard") ||
+    saturdayMorning.includes("Walking kids to school or the playground")
+  ) {
+    insights.push("Family-friendliness is key — we'll boost school ratings, parks, and safe streets.")
+  }
+
+  // Fitness & outdoors
+  if (saturdayMorning.includes("Going for a run, bike ride, or to the gym")) {
+    insights.push("Active lifestyle — proximity to trails, gyms, and bike paths will score higher.")
+  }
+
+  // Pet owner
+  if (saturdayMorning.includes("Walking the dog in a nearby park")) {
+    insights.push("Pet-friendly matters — we'll check for dog parks, trails, and pet policies.")
   }
 
   // Noise sensitivity
