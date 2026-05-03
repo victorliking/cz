@@ -5,6 +5,7 @@ import { ACTIVE_QUESTIONS, type IntakeQuestion } from "@/lib/questionnaire/intak
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import { calculatePerCity, MA_TAX_RATES, type CityAffordability } from "@/lib/financial/affordability"
+import { RangeSlider } from "@/components/ui/range-slider"
 
 interface IntakeWizardProps {
   buyerProfileId: string
@@ -592,96 +593,56 @@ function AffordabilityInput({
 
   return (
     <div className="space-y-5">
-      {/* Monthly payment range */}
+      {/* Monthly payment range — single bar, dual thumbs */}
       <div>
-        <label className="text-sm font-medium text-slate-700 mb-2 block">Monthly payment range</label>
-        <div className="flex items-center justify-between mb-2">
+        <label className="text-sm font-medium text-slate-700 mb-1 block">Monthly payment range</label>
+        <div className="flex items-center justify-between">
           <span className="text-sm font-bold text-blue-600">${monthlyMin.toLocaleString()}</span>
-          <span className="text-xs text-slate-400">to</span>
+          <span className="text-xs text-slate-400">— to —</span>
           <span className="text-sm font-bold text-green-600">${monthlyMax.toLocaleString()}</span>
         </div>
-        <div className="space-y-3">
-          <div>
-            <div className="flex justify-between text-xs text-slate-500 mb-1">
-              <span>Comfortable</span>
-              <span>${monthlyMin.toLocaleString()}/mo</span>
-            </div>
-            <input
-              type="range" min={1000} max={25000} step={100} value={monthlyMin}
-              onChange={(e) => {
-                const v = Math.min(Number(e.target.value), monthlyMax)
-                setMonthlyMin(v)
-                emitChange(v, monthlyMax, downMin, downMax, rate)
-              }}
-              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-            />
-          </div>
-          <div>
-            <div className="flex justify-between text-xs text-slate-500 mb-1">
-              <span>Maximum</span>
-              <span>${monthlyMax.toLocaleString()}/mo</span>
-            </div>
-            <input
-              type="range" min={1000} max={25000} step={100} value={monthlyMax}
-              onChange={(e) => {
-                const v = Math.max(Number(e.target.value), monthlyMin)
-                setMonthlyMax(v)
-                emitChange(monthlyMin, v, downMin, downMax, rate)
-              }}
-              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-green-500"
-            />
-          </div>
+        <RangeSlider
+          min={1000}
+          max={25000}
+          step={100}
+          value={[monthlyMin, monthlyMax]}
+          onChange={([lo, hi]) => {
+            setMonthlyMin(lo)
+            setMonthlyMax(hi)
+            emitChange(lo, hi, downMin, downMax, rate)
+          }}
+          formatLabel={(v) => `$${(v / 1000).toFixed(1)}k`}
+        />
+        <div className="flex justify-between text-xs text-slate-400 -mt-1">
+          <span>🔵 Comfortable</span>
+          <span>🟢 Maximum</span>
         </div>
-        {monthlyMin > monthlyMax && (
-          <p className="text-xs text-red-500 mt-1">⚠️ Comfortable can&apos;t exceed Maximum</p>
-        )}
-        <p className="text-xs text-slate-400 mt-1">Per month, including principal, interest, tax & insurance</p>
       </div>
 
-      {/* Down payment range */}
+      {/* Down payment range — single bar, dual thumbs */}
       <div>
-        <label className="text-sm font-medium text-slate-700 mb-2 block">Down payment range</label>
-        <div className="flex items-center justify-between mb-2">
+        <label className="text-sm font-medium text-slate-700 mb-1 block">Down payment range</label>
+        <div className="flex items-center justify-between">
           <span className="text-sm font-bold text-blue-600">${(downMin / 1000).toFixed(0)}k</span>
-          <span className="text-xs text-slate-400">to</span>
+          <span className="text-xs text-slate-400">— to —</span>
           <span className="text-sm font-bold text-green-600">${(downMax / 1000).toFixed(0)}k</span>
         </div>
-        <div className="space-y-3">
-          <div>
-            <div className="flex justify-between text-xs text-slate-500 mb-1">
-              <span>Comfortable</span>
-              <span>${(downMin / 1000).toFixed(0)}k</span>
-            </div>
-            <input
-              type="range" min={0} max={2000000} step={10000} value={downMin}
-              onChange={(e) => {
-                const v = Math.min(Number(e.target.value), downMax)
-                setDownMin(v)
-                emitChange(monthlyMin, monthlyMax, v, downMax, rate)
-              }}
-              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-            />
-          </div>
-          <div>
-            <div className="flex justify-between text-xs text-slate-500 mb-1">
-              <span>Maximum</span>
-              <span>${(downMax / 1000).toFixed(0)}k</span>
-            </div>
-            <input
-              type="range" min={0} max={2000000} step={10000} value={downMax}
-              onChange={(e) => {
-                const v = Math.max(Number(e.target.value), downMin)
-                setDownMax(v)
-                emitChange(monthlyMin, monthlyMax, downMin, v, rate)
-              }}
-              className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-green-500"
-            />
-          </div>
+        <RangeSlider
+          min={0}
+          max={2000000}
+          step={10000}
+          value={[downMin, downMax]}
+          onChange={([lo, hi]) => {
+            setDownMin(lo)
+            setDownMax(hi)
+            emitChange(monthlyMin, monthlyMax, lo, hi, rate)
+          }}
+          formatLabel={(v) => `$${(v / 1000).toFixed(0)}k`}
+        />
+        <div className="flex justify-between text-xs text-slate-400 -mt-1">
+          <span>🔵 Comfortable</span>
+          <span>🟢 Maximum</span>
         </div>
-        {downMin > downMax && (
-          <p className="text-xs text-red-500 mt-1">⚠️ Comfortable can&apos;t exceed Maximum</p>
-        )}
-        <p className="text-xs text-slate-400 mt-1">Cash available for down payment at closing</p>
       </div>
 
       {/* Loan type selection */}
