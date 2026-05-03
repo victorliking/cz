@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { PortraitCard } from "@/components/portrait/PortraitCard"
 
 export const dynamic = "force-dynamic"
 
@@ -54,27 +55,16 @@ export default async function BuyerDashboard() {
           </Card>
         ) : (
           <>
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Your Self Portrait</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-500">
-                  Based on your intake answers. This will evolve as you see homes.
-                </p>
-                <div className="mt-4 space-y-2">
-                  {profile.intakeResponse?.priorityRanking?.slice(0, 3).map((item: string, idx: number) => (
-                    <div key={item} className="flex items-center gap-2">
-                      <span className="text-xs text-slate-400">#{idx + 1}</span>
-                      <span className="text-sm font-medium">{item}</span>
-                    </div>
-                  ))}
-                </div>
-                <Link href="/buyer/intake" className="text-sm text-blue-600 hover:underline mt-3 inline-block">
-                  Retake intake →
-                </Link>
-              </CardContent>
-            </Card>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-slate-900">Your Self Portrait</h2>
+              <Link href="/buyer/intake" className="text-xs text-blue-600 hover:underline">
+                Retake →
+              </Link>
+            </div>
+            <p className="text-xs text-slate-500 -mt-4">
+              Based on your intake. This evolves as you see homes.
+            </p>
+            <PortraitCard />
 
             <Card>
               <CardHeader>
