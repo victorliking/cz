@@ -125,7 +125,7 @@ function deriveInsights(
 
   // Light seeker
   if (
-    saturdayMorning.includes("☕ Coffee & morning light") ||
+    saturdayMorning.includes("Coffee & morning light") ||
     dealbreakers.includes("Too dark — not enough natural light")
   ) {
     insights.push("You're a natural light seeker — we'll prioritize south/west-facing homes with large windows.")
@@ -140,8 +140,8 @@ function deriveInsights(
 
   // Walkability & errands
   if (
-    saturdayMorning.includes("🚶 Walking to a café") ||
-    saturdayMorning.includes("🛒 Errands nearby on foot") ||
+    saturdayMorning.includes("Walking to a café") ||
+    saturdayMorning.includes("Errands nearby on foot") ||
     dealbreakers.includes("Not walkable — have to drive for everything")
   ) {
     insights.push("Walkability & convenience matter — we'll weight Walk Score and nearby amenities.")
@@ -149,19 +149,19 @@ function deriveInsights(
 
   // Kids & family
   if (
-    saturdayMorning.includes("👶 Kids playing in the yard") ||
-    saturdayMorning.includes("🏫 Walking kids to school")
+    saturdayMorning.includes("Kids playing in the yard") ||
+    saturdayMorning.includes("Walking kids to school")
   ) {
     insights.push("Family-friendliness is key — we'll boost school ratings, parks, and safe streets.")
   }
 
   // Fitness & outdoors
-  if (saturdayMorning.includes("🏃 Running or biking")) {
+  if (saturdayMorning.includes("Running or biking")) {
     insights.push("Active lifestyle — proximity to trails, gyms, and bike paths will score higher.")
   }
 
   // Pet owner
-  if (saturdayMorning.includes("🐕 Walking the dog")) {
+  if (saturdayMorning.includes("Walking the dog")) {
     insights.push("Pet-friendly matters — we'll check for dog parks, trails, and pet policies.")
   }
 
