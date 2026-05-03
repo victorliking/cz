@@ -55,8 +55,11 @@ export default async function AgentDashboard() {
       </div>
 
       <div className="flex gap-3">
+        <Link href="/agent/buyers">
+          <Button size="lg">View Buyers</Button>
+        </Link>
         <Link href="/agent/listings">
-          <Button size="lg">View Listings</Button>
+          <Button variant="outline" size="lg">View Listings</Button>
         </Link>
         <Link href="/agent/listings/new">
           <Button variant="outline" size="lg">+ New Listing</Button>
