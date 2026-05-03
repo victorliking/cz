@@ -472,6 +472,13 @@ function RankingInput({
   )
 }
 
+// --- Dollar formatting helper ---
+function formatDollar(val: number): string {
+  if (val >= 1000000) return `$${(val / 1000000).toFixed(2)}M`
+  if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`
+  return `$${val}`
+}
+
 // --- Affordability Calculator Input ---
 
 interface AffordabilityData {
@@ -623,9 +630,9 @@ function AffordabilityInput({
       <div>
         <label className="text-sm font-medium text-slate-700 mb-1 block">Down payment range</label>
         <div className="flex items-center justify-between">
-          <span className="text-sm font-bold text-blue-600">${(downMin / 1000).toFixed(0)}k</span>
+          <span className="text-sm font-bold text-blue-600">{formatDollar(downMin)}</span>
           <span className="text-xs text-slate-400">— to —</span>
-          <span className="text-sm font-bold text-green-600">${(downMax / 1000).toFixed(0)}k</span>
+          <span className="text-sm font-bold text-green-600">{formatDollar(downMax)}</span>
         </div>
         <RangeSlider
           min={0}
@@ -637,7 +644,7 @@ function AffordabilityInput({
             setDownMax(hi)
             emitChange(monthlyMin, monthlyMax, lo, hi, rate)
           }}
-          formatLabel={(v) => `$${(v / 1000).toFixed(0)}k`}
+          formatLabel={formatDollar}
         />
         <div className="flex justify-between text-xs text-slate-400 -mt-1">
           <span>🔵 Comfortable</span>
@@ -688,10 +695,10 @@ function AffordabilityInput({
             </p>
             <div className="text-right">
               <span className="text-xs text-slate-500">Comfortable: </span>
-              <span className="text-sm font-bold text-green-700">${(avgComfort / 1000).toFixed(0)}k</span>
+              <span className="text-sm font-bold text-green-700">{formatDollar(avgComfort)}</span>
               <span className="text-xs text-slate-400 mx-1">→</span>
               <span className="text-xs text-slate-500">Stretch: </span>
-              <span className="text-sm font-bold text-green-900">${(avgMax / 1000).toFixed(0)}k</span>
+              <span className="text-sm font-bold text-green-900">{formatDollar(avgMax)}</span>
             </div>
           </div>
           <div className="space-y-1">
@@ -704,8 +711,8 @@ function AffordabilityInput({
             {cityResults.map((c, i) => (
               <div key={c.city} className="grid grid-cols-4 gap-1 text-xs p-2 bg-white rounded-md">
                 <span className="text-slate-700 font-medium">{c.city}</span>
-                <span className="text-slate-600 text-right">${(cityResultsComfort[i]?.maxPrice / 1000 || 0).toFixed(0)}k</span>
-                <span className="font-semibold text-slate-900 text-right">${(c.maxPrice / 1000).toFixed(0)}k</span>
+                <span className="text-slate-600 text-right">{formatDollar(cityResultsComfort[i]?.maxPrice || 0)}</span>
+                <span className="font-semibold text-slate-900 text-right">{formatDollar(c.maxPrice)}</span>
                 <span className="text-slate-400 text-right">{(c.taxRate / 10).toFixed(2)}%</span>
               </div>
             ))}
