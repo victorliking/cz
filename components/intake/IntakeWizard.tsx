@@ -418,12 +418,50 @@ function RankingInput({
   value?: string[]
   onChange: (val: string[]) => void
 }) {
-  const items = value || [...options]
+  const [items, setItems] = useState<string[]>(value || [...options])
+  const [dragIdx, setDragIdx] = useState<number | null>(null)
+  const [overIdx, setOverIdx] = useState<number | null>(null)
 
+  // Initialize on first render
+  useEffect(() => {
+    if (!value) onChange([...options])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleDragStart = (idx: number) => {
+    setDragIdx(idx)
+  }
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault()
+    setOverIdx(idx)
+  }
+
+  const handleDrop = (idx: number) => {
+    if (dragIdx === null || dragIdx === idx) {
+      setDragIdx(null)
+      setOverIdx(null)
+      return
+    }
+    const newItems = [...items]
+    const [dragged] = newItems.splice(dragIdx, 1)
+    newItems.splice(idx, 0, dragged)
+    setItems(newItems)
+    onChange(newItems)
+    setDragIdx(null)
+    setOverIdx(null)
+  }
+
+  const handleDragEnd = () => {
+    setDragIdx(null)
+    setOverIdx(null)
+  }
+
+  // Touch-based reorder (mobile fallback with buttons)
   const moveUp = (idx: number) => {
     if (idx === 0) return
     const newItems = [...items]
     ;[newItems[idx - 1], newItems[idx]] = [newItems[idx], newItems[idx - 1]]
+    setItems(newItems)
     onChange(newItems)
   }
 
@@ -431,35 +469,43 @@ function RankingInput({
     if (idx === items.length - 1) return
     const newItems = [...items]
     ;[newItems[idx], newItems[idx + 1]] = [newItems[idx + 1], newItems[idx]]
+    setItems(newItems)
     onChange(newItems)
   }
 
-  // Initialize on first render
-  if (!value) {
-    onChange([...options])
-  }
-
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {items.map((item, idx) => (
         <div
           key={item}
-          className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg"
+          draggable
+          onDragStart={() => handleDragStart(idx)}
+          onDragOver={(e) => handleDragOver(e, idx)}
+          onDrop={() => handleDrop(idx)}
+          onDragEnd={handleDragEnd}
+          className={cn(
+            "flex items-center gap-3 p-3 bg-white border rounded-lg cursor-grab active:cursor-grabbing transition-all select-none",
+            dragIdx === idx ? "opacity-50 scale-95 border-blue-300" : "border-slate-200",
+            overIdx === idx && dragIdx !== idx ? "border-blue-500 bg-blue-50" : ""
+          )}
         >
-          <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+          <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">
             {idx + 1}
           </span>
           <span className="flex-1 text-sm font-medium">{item}</span>
-          <div className="flex flex-col gap-0.5">
+          {/* Drag handle icon */}
+          <span className="text-slate-300 text-sm shrink-0">⠿</span>
+          {/* Fallback buttons for mobile */}
+          <div className="flex flex-col gap-0.5 sm:hidden">
             <button
-              onClick={() => moveUp(idx)}
+              onClick={(e) => { e.stopPropagation(); moveUp(idx) }}
               disabled={idx === 0}
               className="text-slate-400 hover:text-slate-700 disabled:invisible text-xs px-1"
             >
               ▲
             </button>
             <button
-              onClick={() => moveDown(idx)}
+              onClick={(e) => { e.stopPropagation(); moveDown(idx) }}
               disabled={idx === items.length - 1}
               className="text-slate-400 hover:text-slate-700 disabled:invisible text-xs px-1"
             >
@@ -468,6 +514,7 @@ function RankingInput({
           </div>
         </div>
       ))}
+      <p className="text-xs text-slate-400 mt-2">Drag items to reorder, or use arrows on mobile</p>
     </div>
   )
 }
