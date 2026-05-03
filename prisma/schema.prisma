@@ -1,0 +1,305 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  AGENT
+  BUYER
+}
+
+enum BuyerStatus {
+  ACTIVE
+  PAUSED
+  CLOSED
+}
+
+enum PropertyType {
+  SFH
+  CONDO
+  TOWNHOUSE
+  COOP
+  MULTIFAMILY
+}
+
+enum ListingStatus {
+  ACTIVE
+  PENDING
+  SOLD
+  WITHDRAWN
+}
+
+enum ShowingMode {
+  IN_PERSON
+  VIRTUAL
+  DRIVE_BY
+}
+
+enum GutReaction {
+  LOVE
+  LIKE
+  MEH
+  DISLIKE
+  HATE
+}
+
+enum ComparativeResult {
+  BETTER
+  SAME
+  WORSE
+  DIFFERENT
+}
+
+enum InsightKind {
+  STATED_VS_REVEALED_MISMATCH
+  BUDGET_DRIFT
+  PREFERENCE_CONVERGED
+  LOW_CONFIDENCE
+  NEW_PATTERN
+}
+
+enum SnapshotTrigger {
+  INTAKE
+  FEEDBACK
+  RE_INTAKE
+  MANUAL_OVERRIDE
+  OBSERVATION
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      Role
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  buyerProfile     BuyerProfile?
+  managedBuyers    BuyerProfile[] @relation("AgentBuyers")
+  enteredListings  Listing[]
+  observations     AgentObservation[]
+}
+
+model BuyerProfile {
+  id                  String         @id @default(cuid())
+  userId              String         @unique
+  user                User           @relation(fields: [userId], references: [id])
+  agentId             String
+  agent               User           @relation("AgentBuyers", fields: [agentId], references: [id])
+  status              BuyerStatus    @default(ACTIVE)
+  intakeCompletedAt   DateTime?
+
+  budgetMin           Int?
+  budgetMax           Int?
+  minBedrooms         Int?
+  minBathrooms        Float?
+  propertyTypes       PropertyType[]
+  targetCities        String[]
+  targetZipCodes      String[]
+  commuteAnchors      Json?
+  mustHaves           String[]
+  dealBreakers        String[]
+
+  preferenceWeights   Json?
+  weightsUpdatedAt    DateTime?
+
+  notes               String?  @db.Text
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  intakeResponse       IntakeResponse?
+  showings             Showing[]
+  feedbacks            Feedback[]
+  comparativeFeedbacks ComparativeFeedback[]
+  recommendations      RecommendationBatch[]
+  insights             InsightLog[]
+  snapshots            PreferenceSnapshot[]
+  summary              PreferenceSummary?
+}
+
+model Listing {
+  id                  String        @id @default(cuid())
+  agentId             String
+  agent               User          @relation(fields: [agentId], references: [id])
+
+  address             String
+  city                String
+  state               String
+  zipCode             String
+  lat                 Float?
+  lng                 Float?
+  listPrice           Int
+  propertyType        PropertyType
+  bedrooms            Int
+  bathroomsFull       Int
+  bathroomsHalf       Int           @default(0)
+  interiorSqft        Int?
+  lotSqft             Int?
+  yearBuilt           Int?
+  yearRenovated       Int?
+  hoaFeeMonthly       Int?
+  propertyTaxAnnual   Int?
+  listingUrl          String?
+  status              ListingStatus @default(ACTIVE)
+
+  vector              Json
+
+  agentNotes          String?       @db.Text
+  photos              String[]
+
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  showings            Showing[]
+  feedbacks           Feedback[]
+  recommendations     Recommendation[]
+}
+
+model Showing {
+  id                String              @id @default(cuid())
+  buyerProfileId    String
+  buyerProfile      BuyerProfile        @relation(fields: [buyerProfileId], references: [id])
+  listingId         String
+  listing           Listing             @relation(fields: [listingId], references: [id])
+  scheduledAt       DateTime
+  attendedAt        DateTime?
+  mode              ShowingMode
+  agentObservations String?             @db.Text
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  feedbacks         Feedback[]
+  observations      AgentObservation[]
+}
+
+model AgentObservation {
+  id                  String    @id @default(cuid())
+  showingId           String
+  showing             Showing   @relation(fields: [showingId], references: [id])
+  agentId             String
+  agent               User      @relation(fields: [agentId], references: [id])
+
+  lingeredOn          String[]
+  reactedNegativelyTo String[]
+  unpromptedQuotes    String?   @db.Text
+  durationVsAverage   String?
+  agentConfidence     Int
+
+  createdAt           DateTime  @default(now())
+}
+
+model Feedback {
+  id                    String           @id @default(cuid())
+  buyerProfileId        String
+  buyerProfile          BuyerProfile     @relation(fields: [buyerProfileId], references: [id])
+  listingId             String
+  listing               Listing          @relation(fields: [listingId], references: [id])
+  showingId             String?
+  showing               Showing?         @relation(fields: [showingId], references: [id])
+
+  submittedAt           DateTime         @default(now())
+  gutReaction           GutReaction
+  oneLineReaction       String?
+  shownChips            Json
+  likedDimensions       String[]
+  dislikedDimensions    String[]
+  comparativeToPrevious ComparativeResult?
+  previousListingId     String?
+  wouldRevisit          Boolean?
+  wouldBringPartner     Boolean?
+  freeFormNotes         String?          @db.Text
+  durationSeconds       Int?
+}
+
+model ComparativeFeedback {
+  id                 String       @id @default(cuid())
+  buyerProfileId     String
+  buyerProfile       BuyerProfile @relation(fields: [buyerProfileId], references: [id])
+  listingAId         String
+  listingBId         String
+  preferredListingId String?
+  reasonDimensions   String[]
+  submittedAt        DateTime     @default(now())
+}
+
+model RecommendationBatch {
+  id              String           @id @default(cuid())
+  buyerProfileId  String
+  buyerProfile    BuyerProfile     @relation(fields: [buyerProfileId], references: [id])
+  createdAt       DateTime         @default(now())
+  agentReviewedAt DateTime?
+  notes           String?          @db.Text
+
+  recommendations Recommendation[]
+}
+
+model Recommendation {
+  id              String              @id @default(cuid())
+  batchId         String
+  batch           RecommendationBatch @relation(fields: [batchId], references: [id])
+  listingId       String
+  listing         Listing             @relation(fields: [listingId], references: [id])
+  score           Float
+  rationale       Json
+  purpose         String
+  probedDimension String?
+  agentApproved   Boolean             @default(false)
+  shownToBuyerAt  DateTime?
+}
+
+model InsightLog {
+  id              String       @id @default(cuid())
+  buyerProfileId  String
+  buyerProfile    BuyerProfile @relation(fields: [buyerProfileId], references: [id])
+  kind            InsightKind
+  message         String       @db.Text
+  data            Json
+  evidence        Json
+  createdAt       DateTime     @default(now())
+  dismissedAt     DateTime?
+  buyerResolution String?
+}
+
+model IntakeResponse {
+  id              String       @id @default(cuid())
+  buyerProfileId  String       @unique
+  buyerProfile    BuyerProfile @relation(fields: [buyerProfileId], references: [id])
+  answers         Json
+  priorityRanking String[]
+  intakeFreeText  String?      @db.Text
+  startedAt       DateTime     @default(now())
+  completedAt     DateTime?
+  durationSeconds Int?
+}
+
+model PreferenceSnapshot {
+  id              String          @id @default(cuid())
+  buyerProfileId  String
+  buyerProfile    BuyerProfile    @relation(fields: [buyerProfileId], references: [id])
+  triggerType     SnapshotTrigger
+  triggerSourceId String?
+  weightsBefore   Json
+  weightsAfter    Json
+  delta           Json
+  createdAt       DateTime        @default(now())
+}
+
+model PreferenceSummary {
+  id                   String       @id @default(cuid())
+  buyerProfileId       String       @unique
+  buyerProfile         BuyerProfile @relation(fields: [buyerProfileId], references: [id])
+  headline             String       @db.Text
+  topPriorities        Json
+  patterns             Json
+  mismatches           Json
+  buyerFacingText      String?      @db.Text
+  archetype            String?
+  generatedAt          DateTime     @default(now())
+  basedOnFeedbackCount Int          @default(0)
+}
