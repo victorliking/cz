@@ -18,44 +18,50 @@ export default async function AgentDashboard() {
   ])
 
   return (
-    <main className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Agent Dashboard</h1>
+    <div className="p-8">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
+        <p className="text-slate-500 mt-1">Welcome back. Here&apos;s your overview.</p>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <Card>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <Card className="shadow-sm border-slate-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Listings</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-500">Listings</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{listings}</p>
+            <p className="text-4xl font-bold text-slate-900">{listings}</p>
+            <p className="text-xs text-slate-400 mt-1">Active properties</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="shadow-sm border-slate-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Active Buyers</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-500">Active Buyers</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">{buyers}</p>
+            <p className="text-4xl font-bold text-slate-900">{buyers}</p>
+            <p className="text-xs text-slate-400 mt-1">Currently searching</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="shadow-sm border-slate-200">
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm text-muted-foreground">Insights</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-500">Insights</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-bold">0</p>
+            <p className="text-4xl font-bold text-slate-900">0</p>
+            <p className="text-xs text-slate-400 mt-1">Pending review</p>
           </CardContent>
         </Card>
       </div>
 
       <div className="flex gap-3">
         <Link href="/agent/listings">
-          <Button>View Listings</Button>
+          <Button size="lg">View Listings</Button>
         </Link>
         <Link href="/agent/listings/new">
-          <Button variant="outline">+ New Listing</Button>
+          <Button variant="outline" size="lg">+ New Listing</Button>
         </Link>
       </div>
-    </main>
+    </div>
   )
 }
