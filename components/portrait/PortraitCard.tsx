@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import type { BuyerPortrait } from "@/lib/portrait/generate-portrait"
+import { ARCHETYPES } from "@/lib/portrait/generate-portrait"
+import { useI18n } from "@/lib/i18n/context"
 
 type Tab = "profile" | "criteria" | "log"
 
@@ -69,11 +71,7 @@ function HomeProfile({ portrait }: { portrait: BuyerPortrait }) {
   return (
     <div className="space-y-6">
       {/* Archetype */}
-      <section>
-        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Your Buyer Type</p>
-        <h2 className="text-xl font-bold text-slate-900">{portrait.archetype.type}</h2>
-        <p className="text-sm text-slate-600 mt-1">{portrait.archetype.headline}</p>
-      </section>
+      <ArchetypeSection archetype={portrait.archetype} />
 
       {/* Ideal home description */}
       <section>
@@ -376,6 +374,33 @@ function EvolutionLog() {
         )}
       </section>
     </div>
+  )
+}
+
+// --- Archetype Section ---
+function ArchetypeSection({ archetype }: { archetype: { type: string; headline: string } }) {
+  const { locale } = useI18n()
+  // Find matching archetype info
+  const key = Object.keys(ARCHETYPES).find(
+    (k) => ARCHETYPES[k].type === archetype.type
+  )
+  const info = key ? ARCHETYPES[key] : null
+
+  return (
+    <section className="pb-4 border-b">
+      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Your Buyer Type</p>
+      <h2 className="text-xl font-bold text-slate-900">
+        {info ? (locale === "zh" ? `${info.typeZh} · ${info.type}` : info.type) : archetype.type}
+      </h2>
+      <p className="text-sm text-slate-600 mt-1">
+        {info ? (locale === "zh" ? info.headlineZh : info.headline) : archetype.headline}
+      </p>
+      {info && (
+        <p className="text-sm text-slate-500 mt-2 leading-relaxed">
+          {locale === "zh" ? info.descriptionZh : info.description}
+        </p>
+      )}
+    </section>
   )
 }
 

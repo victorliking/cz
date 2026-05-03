@@ -128,6 +128,67 @@ export function generatePortrait(answers: Record<string, any>): BuyerPortrait {
   }
 }
 
+// --- Archetype definitions ---
+export interface ArchetypeInfo {
+  type: string
+  typeZh: string
+  headline: string
+  headlineZh: string
+  description: string
+  descriptionZh: string
+}
+
+export const ARCHETYPES: Record<string, ArchetypeInfo> = {
+  nester: {
+    type: "The Nester",
+    typeZh: "安家型",
+    headline: "You're building a home your family will grow into.",
+    headlineZh: "你在为家人打造一个可以成长的家。",
+    description: "Family is the center of every decision. You prioritize school districts, safe streets, and room for kids to run. You think 7-10 years ahead — not just what works today, but what fits when your family grows.",
+    descriptionZh: "家庭是你做所有决策的核心。你优先考虑学区、安全的街道、孩子可以奔跑的空间。你的视野是7-10年——不是现在够用就行，而是家庭壮大后依然合适。",
+  },
+  urbanist: {
+    type: "The Urbanist",
+    typeZh: "都市型",
+    headline: "You want to walk out the door and have life happen.",
+    headlineZh: "你要的是出门就有生活。",
+    description: "Convenience is king. You'd trade square footage for a walkable neighborhood with cafés, transit, and a short commute. The neighborhood matters more than the house itself.",
+    descriptionZh: "便利是你的第一追求。你愿意用面积换步行可达的街区——咖啡店、地铁、短通勤。社区比房子本身更重要。",
+  },
+  entertainer: {
+    type: "The Entertainer",
+    typeZh: "社交型",
+    headline: "Your home is where people gather.",
+    headlineZh: "你的家是人们聚集的地方。",
+    description: "You live to host. Open kitchens, flow between indoor and outdoor, space for a crowd. The dining table and backyard deck are as important as the master bedroom.",
+    descriptionZh: "你热爱招待朋友。开放式厨房、室内外流通、容纳人群的空间。餐桌和后院的deck跟主卧一样重要。",
+  },
+  aesthete: {
+    type: "The Aesthete",
+    typeZh: "感官型",
+    headline: "You feel a home before you think about it.",
+    headlineZh: "你是先感受一个家，再去思考它。",
+    description: "Light, materials, proportions — you notice things others don't. You'd rather have a smaller beautiful home than a bigger bland one. Quality finishes and architectural character are non-negotiable.",
+    descriptionZh: "光线、材质、比例——你注意到别人忽略的细节。你宁要小而美，不要大而平。质感和建筑特色不可妥协。",
+  },
+  pragmatist: {
+    type: "The Pragmatist",
+    typeZh: "实用型",
+    headline: "You see potential where others see problems.",
+    headlineZh: "你能在别人看到问题的地方看到潜力。",
+    description: "You think in terms of value and upside. A home that needs work doesn't scare you — it excites you. Layout, lot size, and location are what matter; everything else can be changed.",
+    descriptionZh: "你用价值和升值潜力的角度思考。需要装修的房子不吓你——反而让你兴奋。布局、占地和位置才重要，其他都能改。",
+  },
+  explorer: {
+    type: "The Explorer",
+    typeZh: "探索型",
+    headline: "You're still discovering what matters most.",
+    headlineZh: "你还在发现什么对你最重要。",
+    description: "You're open-minded and early in the process. Your preferences will sharpen as you see real homes. We'll cast a wide net and narrow based on your reactions.",
+    descriptionZh: "你心态开放，还在早期探索阶段。随着看到真实的房子，你的偏好会逐渐清晰。我们会先广撒网，再根据你的反应收窄范围。",
+  },
+}
+
 // --- Archetype classification ---
 function classifyArchetype(
   priorities: { item: string; rank: number }[],
