@@ -235,31 +235,145 @@ function ShowingCriteria({ portrait }: { portrait: BuyerPortrait }) {
 }
 
 // --- Part 3: Evolution Log ---
+interface FeedbackEntry {
+  id: string
+  address: string
+  date: string
+  liked: string
+  disliked: string
+  verdict: string
+  notes: string
+  adjustments: string
+}
+
 function EvolutionLog() {
-  // Placeholder for future showing feedback
+  const [entries, setEntries] = useState<FeedbackEntry[]>([])
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ address: "", liked: "", disliked: "", verdict: "neutral", notes: "", adjustments: "" })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    fetch("/api/feedback")
+      .then((r) => r.json())
+      .then((d) => setEntries(d.entries || []))
+      .catch(() => {})
+  }, [])
+
+  const handleSubmit = async () => {
+    setSaving(true)
+    const res = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) })
+    const data = await res.json()
+    if (data.entry) {
+      setEntries((prev) => [data.entry, ...prev])
+      setForm({ address: "", liked: "", disliked: "", verdict: "neutral", notes: "", adjustments: "" })
+      setShowForm(false)
+    }
+    setSaving(false)
+  }
+
+  const verdictLabels: Record<string, string> = { love: "Loved it", like: "Interested", neutral: "Neutral", dislike: "Not for us" }
+
   return (
     <div className="space-y-6">
       <section>
-        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">How This Works</p>
-        <p className="text-sm text-slate-600 leading-relaxed">
-          After each showing, we&apos;ll log what you liked and didn&apos;t like. Over time, your profile sharpens — 
-          we learn not just what you say you want, but what you actually respond to.
-        </p>
-      </section>
-
-      <section>
-        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">Showing History</p>
-        <div className="border border-dashed rounded-lg p-6 text-center">
-          <p className="text-sm text-slate-400">No showings logged yet.</p>
-          <p className="text-xs text-slate-300 mt-1">Your agent will add notes after each visit.</p>
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide">Showing History</p>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="text-xs font-medium text-blue-600 hover:text-blue-800"
+          >
+            {showForm ? "Cancel" : "+ Log a showing"}
+          </button>
         </div>
-      </section>
 
-      <section>
-        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">Profile Adjustments</p>
-        <p className="text-sm text-slate-500 italic">
-          As patterns emerge from your feedback, we&apos;ll automatically update your Home Profile and Showing Criteria.
-        </p>
+        {/* Feedback form */}
+        {showForm && (
+          <div className="border rounded-lg p-4 space-y-3 mb-4 bg-slate-50">
+            <input
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+              placeholder="Address (e.g., 123 Main St, Arlington)"
+              className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm"
+            />
+            <div className="flex gap-2">
+              {(["love", "like", "neutral", "dislike"] as const).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setForm({ ...form, verdict: v })}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                    form.verdict === v ? "bg-blue-500 text-white border-blue-500" : "bg-white text-slate-600 border-slate-200"
+                  )}
+                >
+                  {verdictLabels[v]}
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={form.liked}
+              onChange={(e) => setForm({ ...form, liked: e.target.value })}
+              placeholder="What did you like?"
+              rows={2}
+              className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm resize-none"
+            />
+            <textarea
+              value={form.disliked}
+              onChange={(e) => setForm({ ...form, disliked: e.target.value })}
+              placeholder="What didn't work?"
+              rows={2}
+              className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm resize-none"
+            />
+            <textarea
+              value={form.adjustments}
+              onChange={(e) => setForm({ ...form, adjustments: e.target.value })}
+              placeholder="Should we adjust search criteria? (e.g., 'Need higher ceilings')"
+              rows={2}
+              className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm resize-none"
+            />
+            <button
+              onClick={handleSubmit}
+              disabled={saving || !form.address}
+              className="w-full py-2 bg-blue-500 text-white text-sm font-medium rounded-md hover:bg-blue-600 disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save Feedback"}
+            </button>
+          </div>
+        )}
+
+        {/* Entries list */}
+        {entries.length === 0 && !showForm && (
+          <div className="border border-dashed rounded-lg p-6 text-center">
+            <p className="text-sm text-slate-400">No showings logged yet.</p>
+            <p className="text-xs text-slate-300 mt-1">Click &quot;+ Log a showing&quot; after each visit.</p>
+          </div>
+        )}
+
+        {entries.length > 0 && (
+          <div className="space-y-3">
+            {entries.map((entry) => (
+              <div key={entry.id} className="border rounded-lg p-3 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-900">{entry.address}</p>
+                  <span className="text-xs text-slate-400">{entry.date}</span>
+                </div>
+                <span className={cn(
+                  "inline-block px-2 py-0.5 rounded-full text-xs font-medium",
+                  entry.verdict === "love" ? "bg-green-100 text-green-700" :
+                  entry.verdict === "like" ? "bg-blue-100 text-blue-700" :
+                  entry.verdict === "dislike" ? "bg-red-100 text-red-700" :
+                  "bg-slate-100 text-slate-600"
+                )}>
+                  {verdictLabels[entry.verdict] || entry.verdict}
+                </span>
+                {entry.liked && <p className="text-xs text-slate-600"><span className="text-green-600 font-medium">Liked:</span> {entry.liked}</p>}
+                {entry.disliked && <p className="text-xs text-slate-600"><span className="text-red-500 font-medium">Didn&apos;t like:</span> {entry.disliked}</p>}
+                {entry.adjustments && (
+                  <p className="text-xs text-blue-600 font-medium mt-1">Adjustment: {entry.adjustments}</p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   )
