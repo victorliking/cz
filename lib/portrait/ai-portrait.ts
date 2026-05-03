@@ -117,7 +117,7 @@ Rules for each section:
   2. AREA ANALYSIS: For each target area, state: fits (what matches), gaps (what doesn't), tradeoffs. Use a consistent format.
   3. BUDGET REALITY: Given their requirements vs. market, what is realistic. Include specific price ranges per area for their criteria.
   4. TIMELINE & RISK: Market conditions, competition level, what they should expect.
-- blindSpots: 3-5 logical contradictions in their stated preferences. Each must cite the specific conflicting answers. Include quantified impact (dollar cost, time cost, opportunity cost).
+- blindSpots: 3-5 "decision points that need clarification" — NOT contradictions or blame. Frame each as: "here's a tradeoff in your preferences, here are your options (A/B/C)." Each should cite specific data and offer concrete actionable choices. Tone: helping them think through decisions, not pointing out mistakes.
 - searchStrategy: One dense paragraph for the agent. Specific streets/neighborhoods, price bands, property criteria, and what to deprioritize.
 - personalNote: One objective observation that connects dots between their answers in a way they may not have seen — insightful, not flattering.`
 }
