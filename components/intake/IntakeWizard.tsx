@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { calculatePerCity, MA_TAX_RATES, type CityAffordability } from "@/lib/financial/affordability"
 import { RangeSlider } from "@/components/ui/range-slider"
 import { useI18n, LanguageSwitcher } from "@/lib/i18n/context"
+import { ImageCardSelector, SATURDAY_IMAGES } from "@/components/intake/ImageCardSelector"
 
 interface IntakeWizardProps {
   buyerProfileId: string
@@ -165,6 +166,21 @@ function QuestionRenderer({
     case "chip_single":
       return <ChipSingleInput options={question.options || []} value={value as string | undefined} onChange={onChange} />
     case "chip_multi":
+      // Use image cards for the Saturday morning question
+      if (question.id === "saturday_morning") {
+        const imageOptions = (question.options || []).map((opt) => ({
+          label: opt,
+          image: SATURDAY_IMAGES[opt] || "",
+        }))
+        return (
+          <ImageCardSelector
+            options={imageOptions}
+            value={(value as string[]) || []}
+            onChange={onChange}
+            maxSelections={question.maxSelections}
+          />
+        )
+      }
       return <ChipMultiInput options={question.options || []} value={value as string[] | undefined} onChange={onChange} maxSelections={question.maxSelections} />
     case "multi_input":
       return <MultiInput value={value as string[] | undefined} onChange={onChange} />
