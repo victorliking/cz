@@ -15,6 +15,7 @@ export interface BuyerPortrait {
   budget: {
     comfortable: number
     stretch: number
+    flexibility: string | null
     cities: { name: string; maxPrice: number; taxRate: number }[]
   }
   hardFilters: {
@@ -24,6 +25,13 @@ export interface BuyerPortrait {
     targetCities: string[]
     commuteAnchors: string[]
   }
+  homePreferences: {
+    styles: string[]
+    era: string | null
+    features: string[]
+    lightPreference: string | null
+  }
+  timeline: string | null
   priorities: { item: string; rank: number; weight: number }[]
   lifestyle: {
     saturdayMorning: string[]
@@ -67,6 +75,14 @@ export function generatePortrait(answers: Record<string, any>): BuyerPortrait {
   const targetCities = (answers.target_areas || []) as string[]
   const commuteAnchors = (answers.commute_anchors || []) as string[]
 
+  // New dimensions
+  const homeStyles = (answers.home_style || []) as string[]
+  const homeEra = (answers.home_era as string) || null
+  const homeFeatures = (answers.home_features || []) as string[]
+  const lightPreference = (answers.light_preference as string) || null
+  const moveTimeline = (answers.move_timeline as string) || null
+  const budgetFlex = (answers.budget_flexibility as string) || null
+
   // --- Archetype ---
   const archetype = classifyArchetype(priorities, saturdayMorning, hostingStyle)
 
@@ -87,6 +103,7 @@ export function generatePortrait(answers: Record<string, any>): BuyerPortrait {
     budget: {
       comfortable: budgetData.budgetRange?.[0] || 0,
       stretch: budgetData.budgetRange?.[1] || 0,
+      flexibility: budgetFlex,
       cities: cityBreakdown,
     },
     hardFilters: {
@@ -96,6 +113,13 @@ export function generatePortrait(answers: Record<string, any>): BuyerPortrait {
       targetCities,
       commuteAnchors,
     },
+    homePreferences: {
+      styles: homeStyles,
+      era: homeEra,
+      features: homeFeatures,
+      lightPreference,
+    },
+    timeline: moveTimeline,
     priorities,
     lifestyle: { saturdayMorning, hostingStyle, renovationAppetite },
     dealbreakers,

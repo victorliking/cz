@@ -113,7 +113,7 @@ export function IntakeWizard({ buyerProfileId, onComplete }: IntakeWizardProps) 
         </div>
 
         {/* Immediate value feedback */}
-        {question.immediateValueTemplate && answers[question.id] && (
+        {question.immediateValueTemplate && !!answers[question.id] && (
           <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-100">
             <p className="text-sm text-blue-700">
               💡 {renderTemplate(question.immediateValueTemplate as string, answers[question.id])}

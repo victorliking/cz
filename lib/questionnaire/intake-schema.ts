@@ -188,25 +188,112 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     ],
   },
 
-  // Q12: Image A/B (skipped in v1)
+  // Q12: Architectural style preference
   {
-    id: 'image_ab_1',
-    type: 'chip_single',
-    label: '[Coming soon] Visual preference — kitchen styles',
+    id: 'home_style',
+    type: 'chip_multi',
+    label: 'What architectural styles appeal to you?',
+    subtitle: 'Pick up to 3. This helps us filter homes by look and feel.',
     required: false,
-    skipInV1: true,
+    maxSelections: 3,
+    options: [
+      'Colonial',
+      'Cape Cod',
+      'Craftsman',
+      'Contemporary / Modern',
+      'Ranch / Single-story',
+      'Victorian',
+      'Farmhouse',
+      'Townhouse / Row',
+      'No preference',
+    ],
   },
 
-  // Q13: Image A/B (skipped in v1)
+  // Q13: Era / age preference
   {
-    id: 'image_ab_2',
+    id: 'home_era',
     type: 'chip_single',
-    label: '[Coming soon] Visual preference — living rooms',
+    label: 'How old of a home are you comfortable with?',
+    subtitle: 'Older homes have charm but may need more maintenance.',
     required: false,
-    skipInV1: true,
+    options: [
+      'New construction only (2020+)',
+      'Recently built (2000–2020)',
+      'Updated classic (pre-2000, renovated)',
+      'Character home (original condition, pre-1970)',
+      'No preference on age',
+    ],
   },
 
-  // Q14: Open text
+  // Q14: Materials / features that matter
+  {
+    id: 'home_features',
+    type: 'chip_multi',
+    label: 'Which features make a home feel like yours?',
+    subtitle: 'Pick up to 4.',
+    required: false,
+    maxSelections: 4,
+    options: [
+      'Hardwood floors',
+      'Open floor plan',
+      'High ceilings',
+      'Large windows',
+      'Modern kitchen appliances',
+      'Original woodwork & built-ins',
+      'Finished basement',
+      'Garage (1+ car)',
+      'Central AC',
+      'Fireplace',
+    ],
+  },
+
+  // Q15: Lighting / orientation
+  {
+    id: 'light_preference',
+    type: 'chip_single',
+    label: 'When does natural light matter most to you?',
+    subtitle: 'This helps us evaluate home orientation.',
+    required: false,
+    options: [
+      'Morning light (east-facing) — I\'m an early riser',
+      'Afternoon sun (south/west) — warm and bright',
+      'All-day light — as much as possible',
+      'Soft, indirect — I don\'t want harsh glare',
+      'Not a big factor for me',
+    ],
+  },
+
+  // Q16: Move-in timeline
+  {
+    id: 'move_timeline',
+    type: 'chip_single',
+    label: 'How soon do you need to move in?',
+    subtitle: 'This affects which homes we prioritize.',
+    required: false,
+    options: [
+      'ASAP — within 2 months',
+      '3–6 months',
+      '6–12 months — no rush',
+      'Just exploring for now',
+    ],
+  },
+
+  // Q17: Budget flexibility
+  {
+    id: 'budget_flexibility',
+    type: 'chip_single',
+    label: 'If we find the perfect home but it\'s over budget, how flexible are you?',
+    subtitle: 'Honest answer helps us not waste your time.',
+    required: false,
+    options: [
+      'Hard cap — I can\'t go a dollar over',
+      '5–10% over for the right home',
+      '10–15% stretch if it checks every box',
+      'Budget is a guide, not a wall',
+    ],
+  },
+
+  // Q18: Open text
   {
     id: 'open_text',
     type: 'open_text',

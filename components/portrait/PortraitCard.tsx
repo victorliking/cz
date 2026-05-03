@@ -83,12 +83,30 @@ function HomeProfile({ portrait }: { portrait: BuyerPortrait }) {
             <Row label="Neighborhoods" value={portrait.hardFilters.targetCities.join(", ")} />
           )}
           <Row label="Budget" value={`${formatDollar(portrait.budget.comfortable)} – ${formatDollar(portrait.budget.stretch)}`} />
+          {portrait.budget.flexibility && (
+            <Row label="Flexibility" value={portrait.budget.flexibility} />
+          )}
           <Row label="Size" value={`${portrait.hardFilters.minBedrooms}+ BR / ${portrait.hardFilters.minBathrooms}+ BA`} />
           {portrait.hardFilters.propertyTypes.length > 0 && (
             <Row label="Type" value={portrait.hardFilters.propertyTypes.join(", ")} />
           )}
+          {portrait.homePreferences?.styles.length > 0 && (
+            <Row label="Style" value={portrait.homePreferences.styles.join(", ")} />
+          )}
+          {portrait.homePreferences?.era && (
+            <Row label="Era" value={portrait.homePreferences.era} />
+          )}
+          {portrait.homePreferences?.features.length > 0 && (
+            <Row label="Must-have features" value={portrait.homePreferences.features.join(", ")} />
+          )}
+          {portrait.homePreferences?.lightPreference && (
+            <Row label="Light" value={portrait.homePreferences.lightPreference} />
+          )}
           {portrait.lifestyle.renovationAppetite && (
             <Row label="Condition" value={portrait.lifestyle.renovationAppetite} />
+          )}
+          {portrait.timeline && (
+            <Row label="Timeline" value={portrait.timeline} />
           )}
         </div>
       </section>
