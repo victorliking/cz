@@ -116,7 +116,7 @@ export function IntakeWizard({ buyerProfileId, onComplete }: IntakeWizardProps) 
         {question.immediateValueTemplate && answers[question.id] && (
           <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-100">
             <p className="text-sm text-blue-700">
-              💡 {question.immediateValueTemplate as string}
+              💡 {renderTemplate(question.immediateValueTemplate as string, answers[question.id])}
             </p>
           </div>
         )}
@@ -524,6 +524,20 @@ function RankingInput({
       <p className="text-xs text-slate-400 mt-2">Drag items to reorder, or use arrows on mobile</p>
     </div>
   )
+}
+
+// --- Template rendering helper ---
+function renderTemplate(template: string, value: unknown): string {
+  if (Array.isArray(value)) {
+    return template
+      .replace("{top}", value[0] || "")
+      .replace("{count}", String(value.length))
+      .replace("{items}", value.join(", "))
+  }
+  if (typeof value === "string") {
+    return template.replace("{value}", value)
+  }
+  return template
 }
 
 // --- Dollar formatting helper ---
