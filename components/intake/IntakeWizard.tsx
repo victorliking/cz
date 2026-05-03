@@ -481,6 +481,15 @@ interface AffordabilityData {
   cityBreakdown?: CityAffordability[]
 }
 
+// Loan type options with current market rates
+const LOAN_OPTIONS = [
+  { label: "30yr Fixed", rate: 6.85, desc: "Most common" },
+  { label: "15yr Fixed", rate: 6.10, desc: "Higher payment, less interest" },
+  { label: "7/1 ARM", rate: 6.35, desc: "Lower initial rate" },
+  { label: "FHA 30yr", rate: 6.50, desc: "Low down payment OK" },
+  { label: "VA 30yr", rate: 6.25, desc: "Veterans, no PMI" },
+]
+
 function AffordabilityInput({
   value,
   onChange,
@@ -488,141 +497,208 @@ function AffordabilityInput({
   value?: AffordabilityData
   onChange: (val: AffordabilityData) => void
 }) {
-  const [monthly, setMonthly] = useState(value?.monthlyPayment || 3500)
-  const [down, setDown] = useState(value?.downPayment || 150000)
-  const [rate, setRate] = useState(value?.interestRate || 6.8)
+  const [monthlyMin, setMonthlyMin] = useState(value?.monthlyPayment || 3000)
+  const [monthlyMax, setMonthlyMax] = useState(4500)
+  const [downMin, setDownMin] = useState(value?.downPayment || 100000)
+  const [downMax, setDownMax] = useState(200000)
+  const [selectedLoan, setSelectedLoan] = useState(LOAN_OPTIONS[0])
 
+  const rate = selectedLoan.rate
+
+  // Use the max values for calculation (stretch scenario)
   const cityResults = useMemo(() => {
     return calculatePerCity({
-      monthlyPaymentComfort: monthly,
-      downPayment: down,
+      monthlyPaymentComfort: monthlyMax,
+      downPayment: downMax,
       interestRate: rate / 100,
       targetCities: Object.keys(MA_TAX_RATES),
     })
-  }, [monthly, down, rate])
+  }, [monthlyMax, downMax, rate])
+
+  const cityResultsComfort = useMemo(() => {
+    return calculatePerCity({
+      monthlyPaymentComfort: monthlyMin,
+      downPayment: downMin,
+      interestRate: rate / 100,
+      targetCities: Object.keys(MA_TAX_RATES),
+    })
+  }, [monthlyMin, downMin, rate])
 
   const avgMax = useMemo(() => {
     if (cityResults.length === 0) return 0
     return Math.round(cityResults.reduce((s, c) => s + c.maxPrice, 0) / cityResults.length)
   }, [cityResults])
 
-  // Update parent whenever inputs change
-  const emitChange = useCallback((m: number, d: number, r: number) => {
+  const avgComfort = useMemo(() => {
+    if (cityResultsComfort.length === 0) return 0
+    return Math.round(cityResultsComfort.reduce((s, c) => s + c.maxPrice, 0) / cityResultsComfort.length)
+  }, [cityResultsComfort])
+
+  // Emit change on any update
+  const emitChange = useCallback((mMin: number, mMax: number, dMin: number, dMax: number, r: number) => {
     const results = calculatePerCity({
-      monthlyPaymentComfort: m,
-      downPayment: d,
+      monthlyPaymentComfort: mMax,
+      downPayment: dMax,
+      interestRate: r / 100,
+      targetCities: Object.keys(MA_TAX_RATES),
+    })
+    const comfortResults = calculatePerCity({
+      monthlyPaymentComfort: mMin,
+      downPayment: dMin,
       interestRate: r / 100,
       targetCities: Object.keys(MA_TAX_RATES),
     })
     const avg = Math.round(results.reduce((s, c) => s + c.maxPrice, 0) / results.length)
+    const avgC = Math.round(comfortResults.reduce((s, c) => s + c.maxPrice, 0) / comfortResults.length)
     onChange({
-      monthlyPayment: m,
-      downPayment: d,
+      monthlyPayment: mMax,
+      downPayment: dMax,
       interestRate: r,
-      budgetRange: [Math.round(avg * 0.85), Math.round(avg * 1.15)],
+      budgetRange: [avgC, avg],
       cityBreakdown: results,
     })
   }, [onChange])
 
   return (
-    <div className="space-y-6">
-      {/* Monthly payment */}
+    <div className="space-y-5">
+      {/* Monthly payment range */}
       <div>
-        <div className="flex justify-between items-baseline mb-1">
-          <label className="text-sm font-medium text-slate-700">Comfortable monthly payment</label>
-          <span className="text-lg font-bold text-slate-900">${monthly.toLocaleString()}/mo</span>
+        <label className="text-sm font-medium text-slate-700 mb-2 block">Monthly payment range</label>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs text-slate-500 w-16">Comfort:</span>
+          <span className="text-sm font-bold text-slate-900">${monthlyMin.toLocaleString()}</span>
+          <span className="text-xs text-slate-400 mx-1">to</span>
+          <span className="text-xs text-slate-500 w-10">Max:</span>
+          <span className="text-sm font-bold text-slate-900">${monthlyMax.toLocaleString()}</span>
         </div>
-        <input
-          type="range"
-          min={1500}
-          max={10000}
-          step={100}
-          value={monthly}
-          onChange={(e) => {
-            const v = Number(e.target.value)
-            setMonthly(v)
-            emitChange(v, down, rate)
-          }}
-          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-        />
-        <div className="flex justify-between text-xs text-slate-400 mt-1">
-          <span>$1,500</span>
-          <span>$10,000</span>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 w-12">Low</span>
+            <input
+              type="range" min={1500} max={10000} step={100} value={monthlyMin}
+              onChange={(e) => {
+                const v = Math.min(Number(e.target.value), monthlyMax - 100)
+                setMonthlyMin(v)
+                emitChange(v, monthlyMax, downMin, downMax, rate)
+              }}
+              className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 w-12">High</span>
+            <input
+              type="range" min={1500} max={10000} step={100} value={monthlyMax}
+              onChange={(e) => {
+                const v = Math.max(Number(e.target.value), monthlyMin + 100)
+                setMonthlyMax(v)
+                emitChange(monthlyMin, v, downMin, downMax, rate)
+              }}
+              className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-green-500"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Down payment */}
+      {/* Down payment range */}
       <div>
-        <div className="flex justify-between items-baseline mb-1">
-          <label className="text-sm font-medium text-slate-700">Down payment</label>
-          <span className="text-lg font-bold text-slate-900">${(down / 1000).toFixed(0)}k</span>
+        <label className="text-sm font-medium text-slate-700 mb-2 block">Down payment range</label>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs text-slate-500 w-16">Comfort:</span>
+          <span className="text-sm font-bold text-slate-900">${(downMin / 1000).toFixed(0)}k</span>
+          <span className="text-xs text-slate-400 mx-1">to</span>
+          <span className="text-xs text-slate-500 w-10">Max:</span>
+          <span className="text-sm font-bold text-slate-900">${(downMax / 1000).toFixed(0)}k</span>
         </div>
-        <input
-          type="range"
-          min={25000}
-          max={500000}
-          step={5000}
-          value={down}
-          onChange={(e) => {
-            const v = Number(e.target.value)
-            setDown(v)
-            emitChange(monthly, v, rate)
-          }}
-          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-        />
-        <div className="flex justify-between text-xs text-slate-400 mt-1">
-          <span>$25k</span>
-          <span>$500k</span>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 w-12">Low</span>
+            <input
+              type="range" min={25000} max={500000} step={5000} value={downMin}
+              onChange={(e) => {
+                const v = Math.min(Number(e.target.value), downMax - 5000)
+                setDownMin(v)
+                emitChange(monthlyMin, monthlyMax, v, downMax, rate)
+              }}
+              className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-400 w-12">High</span>
+            <input
+              type="range" min={25000} max={500000} step={5000} value={downMax}
+              onChange={(e) => {
+                const v = Math.max(Number(e.target.value), downMin + 5000)
+                setDownMax(v)
+                emitChange(monthlyMin, monthlyMax, downMin, v, rate)
+              }}
+              className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-green-500"
+            />
+          </div>
         </div>
       </div>
 
-      {/* Interest rate */}
+      {/* Loan type selection */}
       <div>
-        <div className="flex justify-between items-baseline mb-1">
-          <label className="text-sm font-medium text-slate-700">Loan rate (30yr fixed)</label>
-          <span className="text-base font-bold text-slate-900">{rate.toFixed(1)}%</span>
-        </div>
-        <input
-          type="range"
-          min={4.0}
-          max={9.0}
-          step={0.1}
-          value={rate}
-          onChange={(e) => {
-            const v = Number(e.target.value)
-            setRate(v)
-            emitChange(monthly, down, v)
-          }}
-          className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
-        />
-        <div className="flex justify-between text-xs text-slate-400 mt-1">
-          <span>4.0%</span>
-          <span>9.0%</span>
+        <label className="text-sm font-medium text-slate-700 mb-2 block">Loan type (current market rates)</label>
+        <div className="grid grid-cols-1 gap-2">
+          {LOAN_OPTIONS.map((opt) => (
+            <button
+              key={opt.label}
+              type="button"
+              onClick={() => {
+                setSelectedLoan(opt)
+                emitChange(monthlyMin, monthlyMax, downMin, downMax, opt.rate)
+              }}
+              className={cn(
+                "flex items-center justify-between px-4 py-3 rounded-lg border text-sm transition-all",
+                selectedLoan.label === opt.label
+                  ? "bg-blue-50 border-blue-500 text-blue-900"
+                  : "bg-white border-slate-200 text-slate-700 hover:border-blue-200"
+              )}
+            >
+              <div className="flex flex-col items-start">
+                <span className="font-medium">{opt.label}</span>
+                <span className="text-xs text-slate-400">{opt.desc}</span>
+              </div>
+              <span className="font-bold text-base">{opt.rate}%</span>
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Results */}
       {avgMax > 0 && (
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-3">
-          <p className="text-sm font-semibold text-green-800">
-            💰 You can afford up to ~${(avgMax / 1000).toFixed(0)}k (average across MA towns)
-          </p>
-          <div className="space-y-1">
-            <div className="grid grid-cols-3 gap-1 text-xs font-medium text-slate-500 px-2">
-              <span>City</span>
-              <span className="text-right">Max Price</span>
-              <span className="text-right">Tax Rate</span>
+          <div className="flex justify-between items-baseline">
+            <p className="text-sm font-semibold text-green-800">
+              💰 Your buying power
+            </p>
+            <div className="text-right">
+              <span className="text-xs text-slate-500">Comfortable: </span>
+              <span className="text-sm font-bold text-green-700">${(avgComfort / 1000).toFixed(0)}k</span>
+              <span className="text-xs text-slate-400 mx-1">→</span>
+              <span className="text-xs text-slate-500">Stretch: </span>
+              <span className="text-sm font-bold text-green-900">${(avgMax / 1000).toFixed(0)}k</span>
             </div>
-            {cityResults.map((c) => (
-              <div key={c.city} className="grid grid-cols-3 gap-1 text-xs p-2 bg-white rounded-md">
+          </div>
+          <div className="space-y-1">
+            <div className="grid grid-cols-4 gap-1 text-xs font-medium text-slate-500 px-2">
+              <span>City</span>
+              <span className="text-right">Comfort</span>
+              <span className="text-right">Stretch</span>
+              <span className="text-right">Tax</span>
+            </div>
+            {cityResults.map((c, i) => (
+              <div key={c.city} className="grid grid-cols-4 gap-1 text-xs p-2 bg-white rounded-md">
                 <span className="text-slate-700 font-medium">{c.city}</span>
+                <span className="text-slate-600 text-right">${(cityResultsComfort[i]?.maxPrice / 1000 || 0).toFixed(0)}k</span>
                 <span className="font-semibold text-slate-900 text-right">${(c.maxPrice / 1000).toFixed(0)}k</span>
-                <span className="text-slate-500 text-right">{(c.taxRate / 10).toFixed(2)}%</span>
+                <span className="text-slate-400 text-right">{(c.taxRate / 10).toFixed(2)}%</span>
               </div>
             ))}
           </div>
           <p className="text-xs text-green-600">
-            Includes property tax, insurance{down / avgMax < 0.2 ? ", PMI" : ""}, and principal/interest at {rate.toFixed(1)}%
+            {selectedLoan.label} at {rate}% · Includes tax, insurance{downMin / avgComfort < 0.2 ? ", PMI" : ""}
           </p>
         </div>
       )}
