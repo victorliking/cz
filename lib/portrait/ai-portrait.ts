@@ -37,7 +37,7 @@ export async function generateAINarrative(
 
   try {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-opus-4-20250514",
       max_tokens: 2000,
       temperature: 0.7,
       system: systemPrompt,
@@ -49,11 +49,33 @@ export async function generateAINarrative(
     const text = response.content[0].type === "text" ? response.content[0].text : null
     if (!text) return null
 
-    // Extract JSON from response (handle potential markdown wrapping)
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (!jsonMatch) return null
+    // Extract JSON from response — handle markdown wrapping and malformed JSON
+    let jsonStr = text.trim()
+    // Remove markdown code fences if present
+    jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "")
+    // Find outermost JSON object
+    const start = jsonStr.indexOf("{")
+    const end = jsonStr.lastIndexOf("}")
+    if (start === -1 || end === -1) return null
+    jsonStr = jsonStr.slice(start, end + 1)
 
-    const parsed = JSON.parse(jsonMatch[0])
+    // Try to fix common JSON issues (unescaped newlines in strings)
+    jsonStr = jsonStr.replace(/[\r\n]+/g, (match) => "\\n")
+    // But re-add structural newlines between properties
+    jsonStr = jsonStr.replace(/\\n\s*"/g, '\n"')
+    jsonStr = jsonStr.replace(/\\n\s*}/g, '\n}')
+    jsonStr = jsonStr.replace(/\\n\s*]/g, '\n]')
+    jsonStr = jsonStr.replace(/\[\s*\\n/g, '[\n')
+    jsonStr = jsonStr.replace(/{\s*\\n/g, '{\n')
+
+    let parsed: any
+    try {
+      parsed = JSON.parse(jsonStr)
+    } catch {
+      // Last resort: try to evaluate the original slice
+      const rawSlice = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)
+      parsed = JSON.parse(rawSlice)
+    }
     return {
       prose: parsed.prose || [],
       blindSpots: parsed.blindSpots || [],
