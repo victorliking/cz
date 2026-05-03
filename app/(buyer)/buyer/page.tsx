@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PortraitCard } from "@/components/portrait/PortraitCard"
+import { MatchList } from "@/components/matches/MatchList"
 
 export const dynamic = "force-dynamic"
 
@@ -65,6 +66,9 @@ export default async function BuyerDashboard() {
               Based on your intake. This evolves as you see homes.
             </p>
             <PortraitCard />
+
+            {/* Matched Listings */}
+            <MatchList />
 
             <Card>
               <CardHeader>
