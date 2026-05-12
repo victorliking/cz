@@ -11,7 +11,7 @@ export default async function AgentBuyersPage() {
 
   const buyers = await prisma.buyerProfile.findMany({
     where: { agentId: userId },
-    include: { user: true },
+    include: { user: true, intakeResponse: true },
     orderBy: { createdAt: "desc" },
   })
 
@@ -28,7 +28,7 @@ export default async function AgentBuyersPage() {
 
       <div className="grid gap-4">
         {buyers.map((buyer) => {
-          const answers = (buyer.answers as Record<string, any>) || {}
+          const answers = (buyer.intakeResponse?.answers as Record<string, any>) || {}
           const budget = answers.budget || {}
           const cities = (answers.target_areas || []) as string[]
           const bedrooms = answers.bedrooms_min || "?"
