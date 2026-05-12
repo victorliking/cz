@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { validateVector } from "@/lib/vector-schema"
+import { getSchoolRatingNumber } from "@/lib/geo/school-ratings"
 
 export async function POST(request: NextRequest) {
   const userId = request.cookies.get("homematch_user")?.value
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid vector data", details: vectorErrors }, { status: 400 })
   }
 
-  // Auto-populate vector with basic facts
+  // Auto-populate vector with basic facts + school rating from city lookup
   const fullVector = {
     price: listPrice,
     bedrooms,
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
     lot_sqft: lotSqft || null,
     year_built: yearBuilt || null,
     price_per_sqft: interiorSqft ? Math.round(listPrice / interiorSqft) : null,
+    school_rating: getSchoolRatingNumber(city),
     ...vector,
   }
 

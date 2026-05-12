@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { generatePortrait } from "@/lib/portrait/generate-portrait"
 import { matchListings, ListingForMatch } from "@/lib/scoring/match-engine"
+import { getSchoolRatingNumber } from "@/lib/geo/school-ratings"
 
 export async function GET(request: NextRequest) {
   const userId = request.cookies.get("homematch_user")?.value
@@ -56,10 +57,15 @@ export async function GET(request: NextRequest) {
         natural_light: vector.natural_light || undefined,
         noise_level: vector.noise_level || undefined,
         openness: vector.openness || undefined,
+        school_rating: vector.school_rating || getSchoolRatingNumber(listing.city),
+        walk_score: vector.walk_score || undefined,
         yard_usability: vector.yard_usability || undefined,
         move_in_readiness: vector.move_in_readiness || undefined,
         privacy: vector.privacy_from_neighbors || undefined,
+        kitchen_quality: vector.finish_quality ? ({ builder_grade: 2, mid: 3, high_end: 4, luxury: 5 } as any)[vector.finish_quality] : undefined,
         style: vector.style || vector._mls?.style || undefined,
+        street_type: vector.street_type || undefined,
+        commute_primary: vector.commute_minutes_primary || undefined,
       },
       imageUrl: listing.photos?.[0] || undefined,
       description: listing.agentNotes || undefined,
