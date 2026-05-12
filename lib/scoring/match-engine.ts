@@ -44,6 +44,13 @@ export interface ListingForMatch {
   description?: string
 }
 
+export interface DimensionScore {
+  dimension: string
+  label: string
+  score: number    // 0-100
+  weight: number   // buyer's priority weight for this dimension
+}
+
 export interface MatchResult {
   listing: ListingForMatch
   score: number              // 0-100
@@ -51,6 +58,7 @@ export interface MatchResult {
   reasons: string[]          // Why this matches
   concerns: string[]         // What doesn't quite fit
   highlights: string[]       // Top 3 selling points for this buyer
+  dimensionScores: DimensionScore[]  // Per-dimension breakdown
 }
 
 /**
@@ -91,14 +99,14 @@ export function matchListings(
     if (filterResult.eliminated) continue
 
     // Stage 2: Soft scoring
-    const { score, reasons, concerns, highlights } = scoreListing(portrait, listing)
+    const { score, reasons, concerns, highlights, dimensionScores } = scoreListing(portrait, listing)
 
-    const verdict: MatchResult["verdict"] = 
+    const verdict: MatchResult["verdict"] =
       score >= 80 ? "strong" :
       score >= 65 ? "good" :
       score >= 50 ? "fair" : "weak"
 
-    results.push({ listing, score, verdict, reasons, concerns, highlights })
+    results.push({ listing, score, verdict, reasons, concerns, highlights, dimensionScores })
   }
 
   // Sort by score descending
@@ -137,11 +145,22 @@ function applyHardFilters(
   return { eliminated: false }
 }
 
+const DIMENSION_SHORT_LABELS: Record<string, string> = {
+  "Schools & family-friendliness": "Schools",
+  "Privacy & quiet": "Quiet",
+  "Natural light & views": "Light",
+  "Location & commute": "Commute",
+  "Outdoor space & yard": "Yard",
+  "Space & square footage": "Space",
+  "Kitchen & entertaining": "Kitchen",
+  "Finishes & move-in ready": "Condition",
+}
+
 // --- Soft Scoring ---
 function scoreListing(
   portrait: BuyerPortrait,
   listing: ListingForMatch
-): { score: number; reasons: string[]; concerns: string[]; highlights: string[] } {
+): { score: number; reasons: string[]; concerns: string[]; highlights: string[]; dimensionScores: DimensionScore[] } {
   const reasons: string[] = []
   const concerns: string[] = []
   const highlights: string[] = []
@@ -216,12 +235,19 @@ function scoreListing(
   }
 
   // Score each priority with its weight
+  const dimensionScores: DimensionScore[] = []
   for (const priority of portrait.priorities) {
     const scorer = priorityScorers[priority.item]
     if (scorer) {
-      const dimensionScore = scorer()
-      totalScore += dimensionScore * priority.weight
+      const dimScore = scorer()
+      totalScore += dimScore * priority.weight
       totalWeight += priority.weight
+      dimensionScores.push({
+        dimension: priority.item,
+        label: DIMENSION_SHORT_LABELS[priority.item] || priority.item,
+        score: Math.round(dimScore),
+        weight: priority.weight,
+      })
     }
   }
 
@@ -263,5 +289,6 @@ function scoreListing(
     reasons,
     concerns,
     highlights: topHighlights,
+    dimensionScores: dimensionScores.sort((a, b) => b.weight - a.weight),
   }
 }
