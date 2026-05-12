@@ -33,3 +33,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# MLS data files (licensed data - do not commit)
+/data/mls/*.txt
+/data/mls/*.csv
+/data/mls/*.dat
+!data/mls/README.md

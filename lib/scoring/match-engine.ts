@@ -4,9 +4,14 @@
  * Two-stage approach:
  * 1. Hard filter: Eliminate listings that violate dealbreakers (wrong city, over budget, too few BR)
  * 2. Soft scoring: Weighted multi-dimensional match based on buyer priorities
+ * 
+ * v2: Now supports evolved weights from Bayesian preference learning.
+ * If a PreferenceState is provided, uses the evolved weights (from showing feedback)
+ * instead of the static intake weights.
  */
 
 import type { BuyerPortrait } from "@/lib/portrait/generate-portrait"
+import type { PreferenceState } from "./bayesian-learner"
 
 export interface ListingForMatch {
   id: string
@@ -46,6 +51,28 @@ export interface MatchResult {
   reasons: string[]          // Why this matches
   concerns: string[]         // What doesn't quite fit
   highlights: string[]       // Top 3 selling points for this buyer
+}
+
+/**
+ * Score all listings against a buyer portrait using EVOLVED weights.
+ * Falls back to static intake weights if no preference state is provided.
+ * Returns sorted results (best first).
+ */
+export function matchListingsEvolved(
+  portrait: BuyerPortrait,
+  listings: ListingForMatch[],
+  preferenceState: PreferenceState
+): MatchResult[] {
+  // Override portrait priorities with evolved weights
+  const evolvedPortrait = {
+    ...portrait,
+    priorities: preferenceState.current.map((dw, idx) => ({
+      item: dw.dimension,
+      rank: idx + 1,
+      weight: dw.weight,
+    })),
+  }
+  return matchListings(evolvedPortrait, listings)
 }
 
 /**

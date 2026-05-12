@@ -5,8 +5,9 @@ import { cn } from "@/lib/utils"
 import type { BuyerPortrait } from "@/lib/portrait/generate-portrait"
 import { ARCHETYPES } from "@/lib/portrait/generate-portrait"
 import { useI18n } from "@/lib/i18n/context"
+import { PreferenceEvolution } from "@/components/feedback/PreferenceEvolution"
 
-type Tab = "profile" | "criteria" | "log"
+type Tab = "profile" | "criteria" | "evolution" | "log"
 
 export function PortraitCard() {
   const [portrait, setPortrait] = useState<BuyerPortrait | null>(null)
@@ -29,7 +30,8 @@ export function PortraitCard() {
   const tabs: { key: Tab; label: string }[] = [
     { key: "profile", label: "Home Profile" },
     { key: "criteria", label: "Showing Criteria" },
-    { key: "log", label: "Evolution Log" },
+    { key: "evolution", label: "Evolution" },
+    { key: "log", label: "Log" },
   ]
 
   return (
@@ -55,6 +57,7 @@ export function PortraitCard() {
       {/* Tab content */}
       {activeTab === "profile" && <HomeProfile portrait={portrait} />}
       {activeTab === "criteria" && <ShowingCriteria portrait={portrait} />}
+      {activeTab === "evolution" && <PreferenceEvolution />}
       {activeTab === "log" && <EvolutionLog />}
     </div>
   )

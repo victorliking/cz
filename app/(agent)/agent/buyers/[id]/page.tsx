@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { generatePortrait } from "@/lib/portrait/generate-portrait"
 import { ARCHETYPES } from "@/lib/portrait/generate-portrait"
 import { notFound } from "next/navigation"
+import { AgentFeedbackSection } from "@/components/feedback/AgentFeedbackSection"
 
 export const dynamic = "force-dynamic"
 
@@ -13,12 +14,12 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
 
   const profile = await prisma.buyerProfile.findUnique({
     where: { id: params.id },
-    include: { user: true },
+    include: { user: true, intakeResponse: true },
   })
 
   if (!profile || profile.agentId !== userId) return notFound()
 
-  const answers = (profile.answers as Record<string, unknown>) || {}
+  const answers = (profile.intakeResponse?.answers as Record<string, unknown>) || {}
   const portrait = generatePortrait(answers)
 
   // Find archetype details
@@ -35,7 +36,7 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
 
   // Get feedback entries
   const feedback = (answers._feedback || []) as Array<{
-    id: string; address: string; date: string; liked: string; disliked: string; verdict: string; adjustments: string
+    id: string; address: string; date: string; liked: string; disliked: string; verdict: string; notes: string; adjustments: string
   }>
 
   return (
@@ -199,33 +200,8 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
         </section>
       )}
 
-      {/* Showing Feedback History */}
-      {feedback.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">📝 Showing Feedback ({feedback.length})</h2>
-          <div className="space-y-3">
-            {feedback.map((f) => (
-              <div key={f.id} className="border rounded-lg p-3">
-                <div className="flex items-center justify-between mb-1">
-                  <p className="text-sm font-medium text-slate-900">{f.address}</p>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                      f.verdict === "love" ? "bg-green-100 text-green-700" :
-                      f.verdict === "like" ? "bg-blue-100 text-blue-700" :
-                      f.verdict === "dislike" ? "bg-red-100 text-red-700" :
-                      "bg-slate-100 text-slate-600"
-                    }`}>{f.verdict}</span>
-                    <span className="text-xs text-slate-400">{f.date}</span>
-                  </div>
-                </div>
-                {f.liked && <p className="text-xs text-green-600">+ {f.liked}</p>}
-                {f.disliked && <p className="text-xs text-red-500">- {f.disliked}</p>}
-                {f.adjustments && <p className="text-xs text-blue-600 font-medium mt-1">→ Adjust: {f.adjustments}</p>}
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+      {/* Showing Feedback — chip-based form + history */}
+      <AgentFeedbackSection buyerProfileId={profile.id} initialFeedback={feedback} />
 
       {/* Archetype Deep Dive (collapsed by default for agents who want to understand mindset) */}
       {archetypeInfo && (
