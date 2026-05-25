@@ -8,15 +8,17 @@ export default async function Home() {
   const session = await getServerSession(authOptions)
 
   if (session?.user) {
-    const profile = await prisma.buyerProfile.findFirst({
-      where: { userId: session.user.id },
-    })
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
     })
 
     if (user?.role === "AGENT") redirect("/agent")
+
+    const profile = await prisma.buyerProfile.findFirst({
+      where: { userId: session.user.id },
+    })
     if (profile) redirect("/buyer")
+
     redirect("/switch")
   }
 
