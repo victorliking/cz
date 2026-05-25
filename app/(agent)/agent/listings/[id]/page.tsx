@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
-import { cookies } from "next/headers"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth-options"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
@@ -14,8 +15,8 @@ export default async function ListingDetailPage({
 }: {
   params: { id: string }
 }) {
-  const cookieStore = cookies()
-  const userId = cookieStore.get("homematch_user")?.value
+  const session = await getServerSession(authOptions)
+  const userId = session?.user?.id
 
   if (!userId) return <p>Not authenticated</p>
 

@@ -1,15 +1,19 @@
 import { prisma } from "@/lib/prisma"
-import { cookies } from "next/headers"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth-options"
 import { generatePortrait } from "@/lib/portrait/generate-portrait"
 import { ARCHETYPES } from "@/lib/portrait/generate-portrait"
 import { notFound } from "next/navigation"
+import Link from "next/link"
 import { AgentFeedbackSection } from "@/components/feedback/AgentFeedbackSection"
+import { InsightsPanel } from "./InsightsPanel"
+import { PastObservations } from "@/components/observations/PastObservations"
 
 export const dynamic = "force-dynamic"
 
 export default async function AgentBuyerDetailPage({ params }: { params: { id: string } }) {
-  const cookieStore = cookies()
-  const userId = cookieStore.get("homematch_user")?.value
+  const session = await getServerSession(authOptions)
+  const userId = session?.user?.id
   if (!userId) return <p>Not authenticated</p>
 
   const profile = await prisma.buyerProfile.findUnique({
@@ -43,18 +47,28 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
     <div className="p-8 max-w-4xl">
       {/* Header */}
       <div className="mb-8">
-        <p className="text-sm text-slate-400 uppercase tracking-wide">Agent Search Brief</p>
-        <h1 className="text-3xl font-bold text-slate-900 mt-1">
-          {profile.user.name || profile.user.email || profile.userId}
-        </h1>
-        <p className="text-slate-500 mt-1">
-          {portrait.archetype.type} · {portrait.hardFilters.targetCities.join(", ")} · {portrait.timeline || "No timeline"}
-        </p>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm text-slate-400 uppercase tracking-wide">Agent Search Brief</p>
+            <h1 className="text-3xl font-bold text-slate-900 mt-1">
+              {profile.user.name || profile.user.email || profile.userId}
+            </h1>
+            <p className="text-slate-500 mt-1">
+              {portrait.archetype.type} · {portrait.hardFilters.targetCities.join(", ")} · {portrait.timeline || "No timeline"}
+            </p>
+          </div>
+          <Link
+            href={`/agent/observations/new?buyerId=${profile.id}`}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 transition-colors flex-shrink-0"
+          >
+            Record Observation
+          </Link>
+        </div>
       </div>
 
       {/* Quick Reference Card */}
       <div className="bg-slate-50 border rounded-lg p-6 mb-8">
-        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">⚡ Quick Reference</h2>
+        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-4">Quick Reference</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
             <p className="text-slate-400 text-xs">Budget</p>
@@ -83,9 +97,12 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
         </div>
       </div>
 
+      {/* Behavioral Insights Panel */}
+      <InsightsPanel buyerProfileId={profile.id} />
+
       {/* What to Search For */}
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">🎯 What to Search For</h2>
+        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Search Strategy</h2>
         <p className="text-sm text-slate-700 leading-relaxed bg-blue-50 border border-blue-100 rounded-lg p-4">
           {portrait.searchStrategy}
         </p>
@@ -93,7 +110,7 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
 
       {/* Priority Ranking — Agent Version */}
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">📊 Priority Weights (What They Actually Care About)</h2>
+        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Priority Weights</h2>
         <div className="space-y-2">
           {portrait.priorities.map((p, i) => (
             <div key={i} className="flex items-center gap-3">
@@ -117,7 +134,7 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
 
       {/* Dealbreakers */}
       <section className="mb-8">
-        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">🚫 Dealbreakers (Skip If These Apply)</h2>
+        <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Dealbreakers</h2>
         <div className="bg-red-50 border border-red-100 rounded-lg p-4">
           <ul className="space-y-1.5">
             {portrait.dealbreakers.map((d, i) => (
@@ -133,7 +150,7 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
       {/* Must-Haves */}
       {portrait.homePreferences?.features.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">✓ Must-Have Features</h2>
+          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Must-Have Features</h2>
           <div className="flex flex-wrap gap-2">
             {portrait.homePreferences.features.map((f, i) => (
               <span key={i} className="px-3 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-full border border-green-100">
@@ -147,7 +164,7 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
       {/* Blind Spots — Agent Should Know */}
       {portrait.blindSpots.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">⚠️ Contradictions & Hidden Needs</h2>
+          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Contradictions &amp; Hidden Needs</h2>
           <div className="bg-amber-50 border border-amber-100 rounded-lg p-4 space-y-3">
             {portrait.blindSpots.map((b, i) => (
               <p key={i} className="text-sm text-amber-800 leading-relaxed">{b}</p>
@@ -159,7 +176,7 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
       {/* Commute Anchors */}
       {portrait.hardFilters.commuteAnchors.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">🚗 Commute Anchors</h2>
+          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Commute Anchors</h2>
           <ul className="space-y-1">
             {portrait.hardFilters.commuteAnchors.map((c, i) => (
               <li key={i} className="text-sm text-slate-700">→ {c}</li>
@@ -172,7 +189,7 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
       {/* Budget by City */}
       {portrait.budget.cities.length > 0 && (
         <section className="mb-8">
-          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">💰 Max Price by City</h2>
+          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Max Price by City</h2>
           <div className="grid grid-cols-3 gap-3">
             {portrait.budget.cities.map((c, i) => (
               <div key={i} className="bg-slate-50 rounded-lg p-3 text-center">
@@ -188,7 +205,7 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
       {/* Buyer's Own Words */}
       {(portrait.freeText?.threeWords || portrait.freeText?.notes) && (
         <section className="mb-8">
-          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">💬 In Their Own Words</h2>
+          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">In Their Own Words</h2>
           <div className="bg-slate-50 rounded-lg p-4">
             {portrait.freeText.threeWords && (
               <p className="text-sm text-slate-800 italic">&ldquo;{portrait.freeText.threeWords}&rdquo;</p>
@@ -200,6 +217,9 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
         </section>
       )}
 
+      {/* Agent Observations — past recorded observations from showings */}
+      <PastObservations buyerProfileId={profile.id} />
+
       {/* Showing Feedback — chip-based form + history */}
       <AgentFeedbackSection buyerProfileId={profile.id} initialFeedback={feedback} />
 
@@ -207,7 +227,7 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
       {archetypeInfo && (
         <details className="mb-8">
           <summary className="text-sm font-semibold text-slate-700 uppercase tracking-wide cursor-pointer hover:text-slate-900">
-            🧠 Buyer Psychology: {archetypeInfo.type} ({archetypeInfo.typeZh})
+            Buyer Psychology: {archetypeInfo.type} ({archetypeInfo.typeZh})
           </summary>
           <div className="mt-3 bg-slate-50 rounded-lg p-4">
             <p className="text-sm text-slate-600 whitespace-pre-line leading-relaxed">

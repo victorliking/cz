@@ -12,6 +12,8 @@
 
 import type { BuyerPortrait } from "@/lib/portrait/generate-portrait"
 import type { PreferenceState } from "./bayesian-learner"
+import type { StyleClassification, BuyerStylePreferences } from "@/lib/vision/style-tags"
+import { computeStyleMatchScore } from "@/lib/vision/style-matcher"
 
 export interface ListingForMatch {
   id: string
@@ -38,6 +40,7 @@ export interface ListingForMatch {
     commute_secondary?: number   // minutes
     style?: string               // Colonial, Cape Cod, etc.
     street_type?: string         // quiet_residential, busy, etc.
+    style_tags?: StyleClassification  // AI-classified visual style tags
   }
   // Display
   imageUrl?: string
@@ -209,12 +212,12 @@ function scoreListing(
       return score
     },
     "Space & square footage": () => {
-      // Score based on sqft relative to expectation (~1800-2200 for family)
-      const target = 2000
+      // Score based on sqft relative to expectation derived from bedroom count
+      const target = portrait.hardFilters.minBedrooms * 450 + 600
       const ratio = listing.sqft / target
       const score = Math.min(ratio, 1.2) * 83 // Cap at 100
-      if (listing.sqft >= 2000) reasons.push(`Spacious at ${listing.sqft.toLocaleString()} sqft`)
-      if (listing.sqft < 1500) concerns.push(`Only ${listing.sqft.toLocaleString()} sqft`)
+      if (listing.sqft >= target) reasons.push(`Spacious at ${listing.sqft.toLocaleString()} sqft`)
+      if (listing.sqft < target * 0.75) concerns.push(`Only ${listing.sqft.toLocaleString()} sqft`)
       return Math.min(100, score)
     },
     "Kitchen & entertaining": () => {
@@ -251,8 +254,29 @@ function scoreListing(
     }
   }
 
-  // Bonus: Style match
-  if (portrait.homePreferences?.styles.length > 0 && listing.dimensions.style) {
+  // Bonus: AI vision style match (uses structured style tags when available)
+  if (listing.dimensions.style_tags && portrait.homePreferences?.styles.length > 0) {
+    // Convert portrait styles into BuyerStylePreferences format
+    const buyerStylePrefs: BuyerStylePreferences = {
+      architectural_style: portrait.homePreferences.styles
+        .map((s) => s.toLowerCase().replace(/\s+/g, "_"))
+        .filter((s): s is BuyerStylePreferences["architectural_style"] extends (infer T)[] | undefined ? T : never =>
+          ["colonial", "cape_cod", "craftsman", "contemporary", "ranch", "victorian", "farmhouse", "tudor", "mid_century", "split_level", "garrison", "greek_revival"].includes(s)
+        ),
+      era_feel: portrait.homePreferences.era
+        ? [portrait.homePreferences.era as BuyerStylePreferences["era_feel"] extends (infer T)[] | undefined ? T : never].filter(Boolean)
+        : undefined,
+    }
+    const styleScore = computeStyleMatchScore(buyerStylePrefs, listing.dimensions.style_tags)
+    // Convert 0-100 style score to a weighted bonus (max +8 points)
+    const styleBonus = (styleScore / 100) * 8
+    totalScore += styleBonus
+    if (styleScore >= 70) {
+      const topStyle = listing.dimensions.style_tags.architectural_style[0]?.replace(/_/g, " ")
+      highlights.push(`${topStyle ? topStyle.charAt(0).toUpperCase() + topStyle.slice(1) : "Style"} — strong aesthetic match`)
+    }
+  } else if (portrait.homePreferences?.styles.length > 0 && listing.dimensions.style) {
+    // Fallback: simple string match for listings without AI tags
     const styleMatch = portrait.homePreferences.styles.some(
       (s) => listing.dimensions.style?.toLowerCase().includes(s.toLowerCase())
     )

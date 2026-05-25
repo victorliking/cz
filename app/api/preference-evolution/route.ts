@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { generatePreferenceReport } from "@/lib/scoring/preference-report"
 import type { PreferenceState } from "@/lib/scoring/bayesian-learner"
+import { getApiUser } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
-  const userId = request.cookies.get("homematch_user")?.value
+  const apiUser = await getApiUser(request)
+  const userId = apiUser?.id
   if (!userId) {
     return NextResponse.json({ report: null, feedbackCount: 0, hasEnoughData: false })
   }

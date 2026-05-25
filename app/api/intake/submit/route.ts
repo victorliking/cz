@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getApiUser } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
-  const userId = request.cookies.get("homematch_user")?.value
+  const apiUser = await getApiUser(request)
+  const userId = apiUser?.id
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }

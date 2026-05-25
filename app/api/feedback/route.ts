@@ -8,6 +8,9 @@ import {
   type FeedbackSignal,
 } from "@/lib/scoring/bayesian-learner"
 import { generatePreferenceReport } from "@/lib/scoring/preference-report"
+import { generateInsights, type GeneratedInsight } from "@/lib/insights/generate-insights"
+import type { FeedbackHistory } from "@/lib/insights/mismatch-detector"
+import { getApiUser } from "@/lib/auth"
 
 export interface ShowingFeedbackEntry {
   id: string
@@ -37,7 +40,8 @@ async function resolveProfileWithIntake(userId: string, buyerProfileId?: string 
 
 // GET: Retrieve feedback entries
 export async function GET(request: NextRequest) {
-  const userId = request.cookies.get("homematch_user")?.value
+  const apiUser = await getApiUser(request)
+  const userId = apiUser?.id
   if (!userId) return NextResponse.json({ entries: [] })
 
   const buyerProfileId = request.nextUrl.searchParams.get("buyerProfileId")
@@ -52,7 +56,8 @@ export async function GET(request: NextRequest) {
 
 // POST: Add new showing feedback + update Bayesian preference weights
 export async function POST(request: NextRequest) {
-  const userId = request.cookies.get("homematch_user")?.value
+  const apiUser = await getApiUser(request)
+  const userId = apiUser?.id
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
@@ -133,6 +138,31 @@ export async function POST(request: NextRequest) {
     data: { answers: updatedAnswers as any },
   })
 
+  // --- Insight Generation (post Bayesian update) ---
+  let newInsights: GeneratedInsight[] = []
+  if (prefState && prefState.evidenceCount >= 3) {
+    const priorityRanking = (answers.priority_ranking as string[]) || []
+    const feedbackHistoryForInsights: FeedbackHistory[] = existing.map((f) => ({
+      id: f.id,
+      verdict: f.verdict,
+      liked: f.liked,
+      disliked: f.disliked,
+      address: f.address,
+    }))
+
+    newInsights = await generateInsights({
+      buyerProfileId: profile.id,
+      preferenceState: prefState,
+      intakeContext: {
+        priorityRanking,
+        budgetMax: profile.budgetMax,
+        dealBreakers: (answers.pain_points as string[]) || [],
+        targetCities: (answers.target_areas as string[]) || [],
+      },
+      feedbackHistory: feedbackHistoryForInsights,
+    })
+  }
+
   return NextResponse.json({
     entry,
     preferenceEvolution: preferenceReport ? {
@@ -142,5 +172,6 @@ export async function POST(request: NextRequest) {
       currentWeights: preferenceReport.currentWeights,
       verificationQuestions: preferenceReport.verificationQuestions,
     } : null,
+    insights: newInsights.length > 0 ? newInsights : null,
   })
 }

@@ -49,5 +49,5 @@ export {
   STATUS_MAP, PROP_TYPE_MAP 
 } from './field-map'
 export type { PallRecord, SfRecord, CcRecord, MappedListing, TownRecord, AgentRecord, OfficeRecord } from './field-map'
-export { syncFromFiles, upsertListings, MLS_DATA_DIR, MLS_FILES } from './sync'
+export { syncFromFiles, upsertListings, markStaleAsWithdrawn, MLS_DATA_DIR, MLS_FILES } from './sync'
 export type { SyncResult, SyncOptions } from './sync'

@@ -1,18 +1,22 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { getApiUser } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
-  const userId = request.cookies.get("homematch_user")?.value
+  const apiUser = await getApiUser(request)
+  const userId = apiUser?.id
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
 
-  const profile = await prisma.buyerProfile.findFirst({
+  let profile = await prisma.buyerProfile.findFirst({
     where: { userId },
   })
 
   if (!profile) {
-    return NextResponse.json({ profileId: null })
+    profile = await prisma.buyerProfile.create({
+      data: { userId, agentId: userId },
+    })
   }
 
   return NextResponse.json({ profileId: profile.id })

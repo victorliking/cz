@@ -51,6 +51,12 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        apple: {
+          bg: "#f5f5f7",
+          text: "#1d1d1f",
+          secondary: "#86868b",
+          accent: "#007AFF",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

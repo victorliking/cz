@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { validateVector } from "@/lib/vector-schema"
 import { getSchoolRatingNumber } from "@/lib/geo/school-ratings"
+import { getApiUser } from "@/lib/auth"
 
 export async function POST(request: NextRequest) {
-  const userId = request.cookies.get("homematch_user")?.value
+  const apiUser = await getApiUser(request)
+  const userId = apiUser?.id
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
@@ -75,7 +77,8 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const userId = request.cookies.get("homematch_user")?.value
+  const apiUser = await getApiUser(request)
+  const userId = apiUser?.id
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }

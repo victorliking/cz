@@ -178,6 +178,37 @@ function MatchExplanationCard({
               <p className="text-xs text-slate-600 leading-relaxed">{match.listing.description}</p>
             </div>
           )}
+
+          {/* External links */}
+          <div className="flex gap-3 pt-1">
+            <a
+              href={`https://www.redfin.com/MA/${match.listing.city.replace(/\s+/g, '-')}/${match.listing.address.replace(/\s+/g, '-')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs font-medium text-[#007AFF] hover:text-[#0056b3] transition-all"
+            >
+              View on Redfin
+            </a>
+            <a
+              href={`https://www.zillow.com/homes/${encodeURIComponent(match.listing.address + ', ' + match.listing.city + ', MA')}_rb/`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs font-medium text-[#007AFF] hover:text-[#0056b3] transition-all"
+            >
+              View on Zillow
+            </a>
+            <a
+              href={`https://www.google.com/maps/search/${encodeURIComponent(match.listing.address + ', ' + match.listing.city + ', MA')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs font-medium text-[#007AFF] hover:text-[#0056b3] transition-all"
+            >
+              Map
+            </a>
+          </div>
         </div>
       )}
     </div>

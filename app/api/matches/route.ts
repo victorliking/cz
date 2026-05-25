@@ -3,9 +3,11 @@ import { prisma } from "@/lib/prisma"
 import { generatePortrait } from "@/lib/portrait/generate-portrait"
 import { matchListings, ListingForMatch } from "@/lib/scoring/match-engine"
 import { getSchoolRatingNumber } from "@/lib/geo/school-ratings"
+import { getApiUser } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
-  const userId = request.cookies.get("homematch_user")?.value
+  const apiUser = await getApiUser(request)
+  const userId = apiUser?.id
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
   }
@@ -22,23 +24,26 @@ export async function GET(request: NextRequest) {
   const answers = profile.intakeResponse.answers as Record<string, any>
   const portrait = generatePortrait(answers)
 
-  // Fetch real listings from database
-  // Pre-filter by buyer's hard constraints to avoid scoring 3000+ listings
-  const dbListings = await prisma.listing.findMany({
-    where: {
-      status: 'ACTIVE',
-      // Budget filter: only listings within 115% of stretch budget
-      listPrice: { lte: Math.round(portrait.budget.stretch * 1.15) },
-      // City filter (if buyer specified)
-      ...(portrait.hardFilters.targetCities.length > 0 ? {
-        city: { in: portrait.hardFilters.targetCities, mode: 'insensitive' as any }
-      } : {}),
-      // Bedrooms filter
-      bedrooms: { gte: portrait.hardFilters.minBedrooms },
-    },
-    take: 500, // Limit for performance
-    orderBy: { listPrice: 'desc' },
-  })
+  // Progressively relax filters if we get too few results
+  let dbListings = await fetchListings(portrait, 1.15, true)
+  let relaxed = false
+  let relaxedReason: string | undefined
+
+  if (dbListings.length < 3) {
+    // First relaxation: expand budget from 115% to 130%
+    dbListings = await fetchListings(portrait, 1.30, true)
+    if (dbListings.length >= 3) {
+      relaxed = true
+      relaxedReason = "Expanded budget range to find more matches"
+    }
+  }
+
+  if (dbListings.length < 3) {
+    // Second relaxation: drop city filter entirely
+    dbListings = await fetchListings(portrait, 1.30, false)
+    relaxed = true
+    relaxedReason = "Expanded search area and budget to find more matches"
+  }
 
   // Convert DB listings to match engine format
   const listings: ListingForMatch[] = dbListings.map(listing => {
@@ -61,11 +66,18 @@ export async function GET(request: NextRequest) {
         walk_score: vector.walk_score || undefined,
         yard_usability: vector.yard_usability || undefined,
         move_in_readiness: vector.move_in_readiness || undefined,
-        privacy: vector.privacy_from_neighbors || undefined,
-        kitchen_quality: vector.finish_quality ? ({ builder_grade: 2, mid: 3, high_end: 4, luxury: 5 } as any)[vector.finish_quality] : undefined,
+        // Map privacy_from_neighbors (vector key) → privacy (engine key)
+        privacy: vector.privacy_from_neighbors || vector.privacy || undefined,
+        // Map finish_quality enum OR kitchen_quality score → kitchen_quality number
+        kitchen_quality: vector.kitchen_quality
+          || (vector.finish_quality
+            ? ({ builder_grade: 2, mid: 3, high_end: 4, luxury: 5 } as Record<string, number>)[vector.finish_quality]
+            : undefined),
+        // Map commute_minutes_primary (vector key) → commute_primary (engine key)
+        commute_primary: vector.commute_minutes_primary || vector.commute_primary || undefined,
+        commute_secondary: vector.commute_minutes_secondary || vector.commute_secondary || undefined,
         style: vector.style || vector._mls?.style || undefined,
         street_type: vector.street_type || undefined,
-        commute_primary: vector.commute_minutes_primary || undefined,
       },
       imageUrl: listing.photos?.[0] || undefined,
       description: listing.agentNotes || undefined,
@@ -75,9 +87,33 @@ export async function GET(request: NextRequest) {
   const matches = matchListings(portrait, listings)
 
   // Return top 20 matches
-  return NextResponse.json({ 
+  return NextResponse.json({
     matches: matches.slice(0, 20),
     totalConsidered: dbListings.length,
     totalMatched: matches.length,
+    relaxed,
+    relaxedReason,
+  })
+}
+
+/**
+ * Fetch listings from DB with configurable budget multiplier and optional city filter.
+ */
+async function fetchListings(
+  portrait: ReturnType<typeof generatePortrait>,
+  budgetMultiplier: number,
+  applyCityFilter: boolean
+) {
+  return prisma.listing.findMany({
+    where: {
+      status: 'ACTIVE',
+      listPrice: { lte: Math.round(portrait.budget.stretch * budgetMultiplier) },
+      ...(applyCityFilter && portrait.hardFilters.targetCities.length > 0 ? {
+        city: { in: portrait.hardFilters.targetCities, mode: 'insensitive' as any }
+      } : {}),
+      bedrooms: { gte: portrait.hardFilters.minBedrooms },
+    },
+    take: 500,
+    orderBy: { listPrice: 'desc' },
   })
 }

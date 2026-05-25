@@ -9,41 +9,41 @@ export default function AgentLayout({
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 text-slate-100 flex flex-col">
-        <div className="p-6 border-b border-slate-700">
-          <Link href="/agent" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">
+      <aside className="w-64 bg-white border-r border-slate-100 flex flex-col">
+        <div className="p-6">
+          <Link href="/agent" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 bg-[#1d1d1f] rounded-lg flex items-center justify-center text-white font-semibold text-xs">
               HM
             </div>
-            <span className="font-semibold text-lg">HomeMatch</span>
+            <span className="font-semibold text-[#1d1d1f]">HomeMatch</span>
           </Link>
-          <p className="text-xs text-slate-400 mt-1">Agent Portal</p>
+          <p className="text-xs text-[#86868b] mt-1.5 ml-[42px]">Agent Portal</p>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
-          <NavLink href="/agent" icon="📊">
+        <nav className="flex-1 px-4 space-y-1">
+          <NavLink href="/agent">
             Dashboard
           </NavLink>
-          <NavLink href="/agent/listings" icon="🏠">
+          <NavLink href="/agent/listings">
             Listings
           </NavLink>
-          <NavLink href="/agent/listings/new" icon="➕">
+          <NavLink href="/agent/listings/new">
             New Listing
           </NavLink>
         </nav>
 
-        <div className="p-4 border-t border-slate-700">
+        <div className="p-5 border-t border-slate-100">
           <Link
             href="/switch"
-            className="text-xs text-slate-400 hover:text-slate-200 transition-colors"
+            className="text-sm text-[#86868b] hover:text-[#1d1d1f] transition-all"
           >
-            Switch Role →
+            Switch Role
           </Link>
         </div>
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 bg-slate-50 overflow-y-auto">
+      <main className="flex-1 bg-[#f5f5f7] overflow-y-auto">
         {children}
       </main>
     </div>
@@ -52,19 +52,16 @@ export default function AgentLayout({
 
 function NavLink({
   href,
-  icon,
   children,
 }: {
   href: string
-  icon: string
   children: React.ReactNode
 }) {
   return (
     <Link
       href={href}
-      className="flex items-center gap-3 px-3 py-2 rounded-md text-sm text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
+      className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-[#1d1d1f] hover:bg-[#f5f5f7] transition-all"
     >
-      <span>{icon}</span>
       <span>{children}</span>
     </Link>
   )

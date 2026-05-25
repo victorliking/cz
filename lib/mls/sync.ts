@@ -21,11 +21,13 @@
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { parseMlsFile } from './parser'
-import { 
-  MappedListing, 
-  STATUS_MAP, PROP_TYPE_MAP, 
-  buildPhotoUrls, buildAddress 
+import {
+  MappedListing,
+  STATUS_MAP, PROP_TYPE_MAP,
+  buildPhotoUrls, buildAddress
 } from './field-map'
+import { getSchoolRatingNumber } from '@/lib/geo/school-ratings'
+import { autoDeriveVector } from './auto-derive-vector'
 
 // ============================================================
 // CONFIGURATION
@@ -383,6 +385,49 @@ function parseNum(val: string | null | undefined): number | null {
 }
 
 // ============================================================
+// DATABASE: MARK STALE AS WITHDRAWN
+// ============================================================
+
+/**
+ * Mark stale listings as WITHDRAWN.
+ *
+ * Any ACTIVE listing in the database whose MLS number was NOT included
+ * in the provided set (today's import) is assumed to be off-market and
+ * will be set to WITHDRAWN.
+ *
+ * @param seenMlsNumbers - Set of MLS numbers that appeared in today's import file
+ * @returns Number of listings marked as WITHDRAWN
+ */
+export async function markStaleAsWithdrawn(seenMlsNumbers: Set<number>): Promise<number> {
+  const { prisma } = await import('@/lib/prisma')
+
+  // Get all ACTIVE listings that have an mlsNumber in their vector JSON
+  const activeListings = await prisma.listing.findMany({
+    where: { status: 'ACTIVE' },
+    select: { id: true, vector: true },
+  })
+
+  const idsToWithdraw: string[] = []
+
+  for (const listing of activeListings) {
+    const vector = listing.vector as Record<string, unknown> | null
+    const mlsNumber = vector?.mlsNumber as number | undefined
+    if (mlsNumber && !seenMlsNumbers.has(mlsNumber)) {
+      idsToWithdraw.push(listing.id)
+    }
+  }
+
+  if (idsToWithdraw.length > 0) {
+    await prisma.listing.updateMany({
+      where: { id: { in: idsToWithdraw } },
+      data: { status: 'WITHDRAWN' },
+    })
+  }
+
+  return idsToWithdraw.length
+}
+
+// ============================================================
 // DATABASE UPSERT (Prisma)
 // ============================================================
 
@@ -415,6 +460,12 @@ export async function upsertListings(
         }
       })
 
+      // Auto-derive scoring dimensions from MLS data
+      const derived = autoDeriveVector(listing)
+
+      // Look up school rating for the city
+      const schoolRating = getSchoolRatingNumber(listing.city)
+
       const data = {
         agentId: agentUserId,
         address: listing.address,
@@ -444,13 +495,15 @@ export async function upsertListings(
           year_built: listing.yearBuilt,
           style: listing.style,
           heating_type: listing.heating,
-          // Agent-scored (null until scored)
-          natural_light: null,
-          noise_level: null,
-          openness: null,
-          privacy_from_neighbors: null,
-          move_in_readiness: null,
-          yard_usability: null,
+          // Auto-derived dimensions (overridden by agent if scored later)
+          natural_light: derived.natural_light,
+          noise_level: derived.noise_level,
+          openness: derived.openness,
+          privacy_from_neighbors: derived.privacy,
+          move_in_readiness: derived.move_in_readiness,
+          yard_usability: derived.yard_usability,
+          kitchen_quality: derived.kitchen_quality,
+          school_rating: schoolRating,
           // MLS raw metadata
           _mls: {
             mlsNumber: listing.mlsNumber,

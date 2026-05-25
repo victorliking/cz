@@ -37,7 +37,12 @@ export interface BuyerPortrait {
     saturdayMorning: string[]
     hostingStyle: string | null
     renovationAppetite: string | null
+    remoteWork: string | null
+    neighborhoodVibe: string | null
   }
+  household: string[]
+  parkingNeeds: string | null
+  hoaTolerance: string | null
   dealbreakers: string[]
   freeText: { threeWords: string | null; notes: string | null }
   // Legacy field for backwards compat
@@ -83,17 +88,24 @@ export function generatePortrait(answers: Record<string, any>): BuyerPortrait {
   const moveTimeline = (answers.move_timeline as string) || null
   const budgetFlex = (answers.budget_flexibility as string) || null
 
-  // --- Archetype ---
-  const archetype = classifyArchetype(priorities, saturdayMorning, hostingStyle)
+  // v2 questions
+  const household = (answers.household || []) as string[]
+  const remoteWork = (answers.remote_work as string) || null
+  const parkingNeeds = (answers.parking_needs as string) || null
+  const neighborhoodVibe = (answers.neighborhood_vibe as string) || null
+  const hoaTolerance = (answers.hoa_tolerance as string) || null
+
+  // --- Archetype (use neighborhoodVibe to refine) ---
+  const archetype = classifyArchetype(priorities, saturdayMorning, hostingStyle, neighborhoodVibe)
 
   // --- Generate prose insights ---
   const prose = generateProse(priorities, saturdayMorning, hostingStyle, dealbreakers, renovationAppetite, budgetData, bedroomsMin)
 
-  // --- Detect blind spots / contradictions ---
-  const blindSpots = detectBlindSpots(priorities, saturdayMorning, dealbreakers, renovationAppetite, bedroomsMin, budgetData, commuteAnchors, targetCities)
+  // --- Detect blind spots / contradictions (use household + remoteWork) ---
+  const blindSpots = detectBlindSpots(priorities, saturdayMorning, dealbreakers, renovationAppetite, bedroomsMin, budgetData, commuteAnchors, targetCities, household, remoteWork)
 
-  // --- Search strategy ---
-  const searchStrategy = generateStrategy(archetype.type, priorities, dealbreakers, renovationAppetite, budgetData)
+  // --- Search strategy (use parkingNeeds) ---
+  const searchStrategy = generateStrategy(archetype.type, priorities, dealbreakers, renovationAppetite, budgetData, parkingNeeds)
 
   return {
     archetype,
@@ -121,7 +133,10 @@ export function generatePortrait(answers: Record<string, any>): BuyerPortrait {
     },
     timeline: moveTimeline,
     priorities,
-    lifestyle: { saturdayMorning, hostingStyle, renovationAppetite },
+    lifestyle: { saturdayMorning, hostingStyle, renovationAppetite, remoteWork, neighborhoodVibe },
+    household,
+    parkingNeeds,
+    hoaTolerance,
     dealbreakers,
     freeText,
     insights: [], // kept for backwards compat
@@ -313,7 +328,8 @@ export const ARCHETYPES: Record<string, ArchetypeInfo> = {
 function classifyArchetype(
   priorities: { item: string; rank: number }[],
   lifestyle: string[],
-  hosting: string | null
+  hosting: string | null,
+  neighborhoodVibe: string | null
 ): { type: string; headline: string } {
   const top3 = priorities.slice(0, 3).map((p) => p.item)
 
@@ -321,7 +337,8 @@ function classifyArchetype(
     top3.includes("Schools & family-friendliness") ||
     top3.includes("Privacy & quiet") ||
     lifestyle.includes("Kids playing in the yard") ||
-    lifestyle.includes("Walking kids to school")
+    lifestyle.includes("Walking kids to school") ||
+    neighborhoodVibe?.includes("Quiet residential")
   ) {
     return { type: "The Nester", headline: "You're building a home your family will grow into." }
   }
@@ -329,7 +346,8 @@ function classifyArchetype(
   if (
     top3.includes("Location & commute") ||
     lifestyle.includes("Walking to a café") ||
-    lifestyle.includes("Errands nearby on foot")
+    lifestyle.includes("Errands nearby on foot") ||
+    neighborhoodVibe?.includes("Village center")
   ) {
     return { type: "The Urbanist", headline: "You want to walk out the door and have life happen." }
   }
@@ -433,7 +451,9 @@ function detectBlindSpots(
   bedrooms: number,
   budget: any,
   commutes: string[],
-  cities: string[]
+  cities: string[],
+  household: string[],
+  remoteWork: string | null
 ): string[] {
   const spots: string[] = []
   const top3 = priorities.slice(0, 3).map((p) => p.item)
@@ -455,12 +475,31 @@ function detectBlindSpots(
     )
   }
 
-  // Hidden need: bedroom count too low
-  const hasKids = lifestyle.includes("Kids playing in the yard") || lifestyle.includes("Walking kids to school")
-  const wfh = lifestyle.includes("Working from home")
+  // Hidden need: bedroom count too low (use household answers for better detection)
+  const hasKidsFromHousehold = household.includes("Young kids (under 5)") || household.includes("School-age kids (5-18)")
+  const hasKidsFromLifestyle = lifestyle.includes("Kids playing in the yard") || lifestyle.includes("Walking kids to school")
+  const hasKids = hasKidsFromHousehold || hasKidsFromLifestyle
+  const wfhFromRemoteWork = remoteWork?.includes("Fully remote") || remoteWork?.includes("Hybrid")
+  const wfhFromLifestyle = lifestyle.includes("Working from home")
+  const wfh = wfhFromRemoteWork || wfhFromLifestyle
+
   if (bedrooms <= 3 && hasKids && wfh) {
     spots.push(
       `You said ${bedrooms} bedrooms minimum, but you have kids and work from home. That's master + kid room + office = ${bedrooms} with zero flexibility. If there's any chance of another child or hosting family, you actually need ${bedrooms + 1}.`
+    )
+  }
+
+  // Household includes aging parent but low bedroom count
+  if (household.includes("Aging parent / in-law") && bedrooms <= 3) {
+    spots.push(
+      `You mentioned an aging parent/in-law living with you, but only ${bedrooms} bedrooms. Consider whether they need a private bedroom and bathroom — multi-generational living works best with some separation.`
+    )
+  }
+
+  // Remote work but commute ranked high — note the modulation
+  if (wfhFromRemoteWork && top3.includes("Location & commute") && remoteWork?.includes("Fully remote")) {
+    spots.push(
+      "You're fully remote but ranked commute as a top priority. If you don't commute daily, you could unlock neighborhoods 20-30 minutes farther out — with more space and lower prices."
     )
   }
 
@@ -471,8 +510,8 @@ function detectBlindSpots(
     )
   }
 
-  // Dual commute pressure
-  if (commutes.length >= 2) {
+  // Dual commute pressure (modulated by remote work)
+  if (commutes.length >= 2 && !remoteWork?.includes("Fully remote")) {
     spots.push(
       "With two commute destinations, you're constrained geographically. Map both commutes before falling in love with a neighborhood — a home that's great for one commute might add 20 minutes to the other."
     )
@@ -487,7 +526,8 @@ function generateStrategy(
   priorities: { item: string; rank: number }[],
   dealbreakers: string[],
   renovation: string | null,
-  budget: any
+  budget: any,
+  parkingNeeds: string | null
 ): string {
   const parts: string[] = []
 
@@ -509,6 +549,15 @@ function generateStrategy(
 
   if (renovation?.includes("Turn-key")) {
     parts.push("Only homes renovated in the last 5 years or new construction.")
+  }
+
+  // Parking constraint for search
+  if (parkingNeeds?.includes("Must have")) {
+    parts.push("Filter to homes with garage or driveway — parking is non-negotiable for you.")
+  } else if (parkingNeeds?.includes("Strongly prefer")) {
+    parts.push("Prioritize homes with at least one dedicated parking spot; deprioritize street-parking-only listings.")
+  } else if (parkingNeeds?.includes("Don't need")) {
+    parts.push("Parking isn't a factor — opens up denser neighborhoods and condos without deeded spots.")
   }
 
   return parts.join(" ")

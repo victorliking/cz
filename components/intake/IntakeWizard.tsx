@@ -3,10 +3,13 @@
 import { useState, useCallback, useRef, useMemo, useEffect } from "react"
 import { ACTIVE_QUESTIONS, type IntakeQuestion } from "@/lib/questionnaire/intake-schema"
 import { Button } from "@/components/ui/button"
+import { AutocompleteInput } from "@/components/ui/autocomplete-input"
 import { cn } from "@/lib/utils"
 import { calculatePerCity, MA_TAX_RATES, type CityAffordability } from "@/lib/financial/affordability"
 import { RangeSlider } from "@/components/ui/range-slider"
 import { useI18n, LanguageSwitcher } from "@/lib/i18n/context"
+import { MA_TOWNS, COMMON_COMMUTE_DESTINATIONS } from "@/lib/data/ma-towns"
+import { STYLE_EXAMPLES } from "@/lib/data/style-examples"
 
 interface IntakeWizardProps {
   buyerProfileId: string
@@ -116,7 +119,7 @@ export function IntakeWizard({ buyerProfileId, onComplete }: IntakeWizardProps) 
         {question.immediateValueTemplate && !!answers[question.id] && (
           <div className="mt-6 p-3 bg-blue-50 rounded-lg border border-blue-100">
             <p className="text-sm text-blue-700">
-              💡 {renderTemplate(question.immediateValueTemplate as string, answers[question.id])}
+              {renderTemplate(question.immediateValueTemplate as string, answers[question.id])}
             </p>
           </div>
         )}
@@ -157,6 +160,11 @@ function QuestionRenderer({
   value: unknown
   onChange: (val: unknown) => void
 }) {
+  // Special visual picker for home style
+  if (question.id === "home_style") {
+    return <VisualStylePicker value={value as string[] | undefined} onChange={onChange} maxSelections={question.maxSelections} />
+  }
+
   switch (question.type) {
     case "dual_slider":
       return <DualSliderInput value={value as [number, number] | undefined} onChange={onChange} />
@@ -167,9 +175,9 @@ function QuestionRenderer({
     case "chip_multi":
       return <ChipMultiInput options={question.options || []} value={value as string[] | undefined} onChange={onChange} maxSelections={question.maxSelections} />
     case "multi_input":
-      return <MultiInput value={value as string[] | undefined} onChange={onChange} />
+      return <TownAutocomplete value={value as string[] | undefined} onChange={onChange} />
     case "repeater":
-      return <RepeaterInput value={value as string[] | undefined} onChange={onChange} />
+      return <CommuteAutocomplete value={value as string[] | undefined} onChange={onChange} />
     case "ranking":
       return <RankingInput options={question.options || []} value={value as string[] | undefined} onChange={onChange} />
     case "open_text":
@@ -313,6 +321,97 @@ function ChipMultiInput({
         ))}
       </div>
     </div>
+  )
+}
+
+function VisualStylePicker({
+  value,
+  onChange,
+  maxSelections = 3,
+}: {
+  value?: string[]
+  onChange: (val: string[]) => void
+  maxSelections?: number
+}) {
+  const selected = value || []
+
+  const toggle = (id: string) => {
+    if (selected.includes(id)) {
+      onChange(selected.filter(s => s !== id))
+    } else if (selected.length < maxSelections) {
+      onChange([...selected, id])
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        {STYLE_EXAMPLES.map((style) => (
+          <button
+            key={style.id}
+            type="button"
+            onClick={() => toggle(style.id)}
+            className={cn(
+              "relative rounded-2xl overflow-hidden border-2 transition-all aspect-[4/3]",
+              selected.includes(style.id)
+                ? "border-[#007AFF] shadow-md ring-2 ring-[#007AFF]/20"
+                : "border-transparent hover:border-slate-200"
+            )}
+          >
+            <img
+              src={style.photoUrl}
+              alt={style.label}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+              <p className="text-white text-sm font-medium text-left">{style.label}</p>
+            </div>
+            {selected.includes(style.id) && (
+              <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-[#007AFF] flex items-center justify-center">
+                <span className="text-white text-xs font-bold">&#10003;</span>
+              </div>
+            )}
+          </button>
+        ))}
+      </div>
+      {selected.length > 0 && (
+        <p className="text-sm text-[#86868b]">{selected.length}/{maxSelections} selected</p>
+      )}
+    </div>
+  )
+}
+
+function TownAutocomplete({
+  value,
+  onChange,
+}: {
+  value?: string[]
+  onChange: (val: string[]) => void
+}) {
+  return (
+    <AutocompleteInput
+      suggestions={MA_TOWNS}
+      values={value || []}
+      onChange={onChange}
+      placeholder="Start typing a city or town..."
+    />
+  )
+}
+
+function CommuteAutocomplete({
+  value,
+  onChange,
+}: {
+  value?: string[]
+  onChange: (val: string[]) => void
+}) {
+  return (
+    <AutocompleteInput
+      suggestions={COMMON_COMMUTE_DESTINATIONS}
+      values={value || []}
+      onChange={onChange}
+      placeholder="Start typing a workplace or address..."
+    />
   )
 }
 
@@ -689,8 +788,8 @@ function AffordabilityInput({
           formatLabel={(v) => `$${(v / 1000).toFixed(1)}k`}
         />
         <div className="flex justify-between text-xs text-slate-400 -mt-1">
-          <span>🔵 Comfortable</span>
-          <span>🟢 Maximum</span>
+          <span>Comfortable</span>
+          <span>Maximum</span>
         </div>
       </div>
 
@@ -715,8 +814,8 @@ function AffordabilityInput({
           formatLabel={formatDollar}
         />
         <div className="flex justify-between text-xs text-slate-400 -mt-1">
-          <span>🔵 Comfortable</span>
-          <span>🟢 Maximum</span>
+          <span>Comfortable</span>
+          <span>Maximum</span>
         </div>
       </div>
 
@@ -749,7 +848,7 @@ function AffordabilityInput({
         </div>
         {rateSource && (
           <p className="text-xs text-slate-400 mt-2">
-            📊 Source: {rateSource}{rateAsOf ? ` (week of ${rateAsOf})` : ""}
+            Source: {rateSource}{rateAsOf ? ` (week of ${rateAsOf})` : ""}
           </p>
         )}
       </div>
@@ -759,7 +858,7 @@ function AffordabilityInput({
         <div className="bg-green-50 border border-green-200 rounded-xl p-4 space-y-3">
           <div className="flex justify-between items-baseline">
             <p className="text-sm font-semibold text-green-800">
-              💰 Your buying power
+              Your buying power
             </p>
             <div className="text-right">
               <span className="text-xs text-slate-500">Comfortable: </span>

@@ -1,5 +1,5 @@
 /**
- * Intake questionnaire — 14 questions (Q12-Q13 skipped in v1).
+ * Intake questionnaire — v2 with merged style/era, new lifestyle questions.
  * Each question has:
  * - id: unique key
  * - type: input type
@@ -42,7 +42,26 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     required: true,
   },
 
-  // Q2: Bedrooms
+  // Q2: Household composition
+  {
+    id: 'household',
+    type: 'chip_multi',
+    label: 'Who will be living in this home?',
+    subtitle: 'This helps us validate bedroom count and space needs.',
+    required: true,
+    options: [
+      'Just me',
+      'Me and partner',
+      'Young kids (under 5)',
+      'School-age kids (5-18)',
+      'Aging parent / in-law',
+      'Roommate',
+      'Dog(s)',
+      'Cat(s)',
+    ],
+  },
+
+  // Q3: Bedrooms
   {
     id: 'bedrooms_min',
     type: 'chip_single',
@@ -52,7 +71,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     options: ['1', '2', '3', '4', '5+'],
   },
 
-  // Q3: Bathrooms
+  // Q4: Bathrooms
   {
     id: 'bathrooms_min',
     type: 'chip_single',
@@ -62,7 +81,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     options: ['1', '1.5', '2', '2.5', '3+'],
   },
 
-  // Q4: Property types
+  // Q5: Property types
   {
     id: 'property_types',
     type: 'chip_multi',
@@ -72,7 +91,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     options: ['Single Family', 'Condo', 'Townhouse', 'Multi-family', 'Any'],
   },
 
-  // Q5: Target cities/zips
+  // Q6: Target cities/zips
   {
     id: 'target_areas',
     type: 'multi_input',
@@ -81,7 +100,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     required: true,
   },
 
-  // Q6: Commute anchors
+  // Q7: Commute anchors
   {
     id: 'commute_anchors',
     type: 'repeater',
@@ -90,7 +109,22 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     required: true,
   },
 
-  // Q7: Forced ranking ⭐ (signal strength 0.3)
+  // Q8: Remote work
+  {
+    id: 'remote_work',
+    type: 'chip_single',
+    label: 'How often do you work from home?',
+    subtitle: 'This affects how much commute time matters — and whether you need a dedicated office.',
+    required: true,
+    options: [
+      'Fully remote — no regular commute',
+      'Hybrid — 2-3 days in office',
+      'Mostly in-office — 4-5 days',
+      'Not applicable',
+    ],
+  },
+
+  // Q9: Forced ranking
   {
     id: 'priority_ranking',
     type: 'ranking',
@@ -110,7 +144,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     immediateValueTemplate: 'Compared to most first-time buyers, you weight {top} higher than average',
   },
 
-  // Q8: Saturday morning scenario (signal strength 0.4)
+  // Q10: Saturday morning scenario
   {
     id: 'saturday_morning',
     type: 'chip_multi',
@@ -134,13 +168,14 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     ],
   },
 
-  // Q9: Hosting scenario (signal strength 0.4)
+  // Q9 (old): Hosting scenario — skipped in v1 (redundant with saturday_morning + priority ranking)
   {
     id: 'hosting_scenario',
     type: 'chip_single',
     label: 'When friends come over, what does "hosting" look like for you?',
     subtitle: 'Pick the one that fits best.',
     required: false,
+    skipInV1: true,
     options: [
       'Big dinner parties — need a real dining room',
       'Casual hangs — open kitchen/living is key',
@@ -150,7 +185,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     ],
   },
 
-  // Q10: Current home pain points (signal strength 0.4)
+  // Q11: Current home pain points
   {
     id: 'pain_points',
     type: 'chip_multi',
@@ -173,7 +208,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     immediateValueTemplate: 'Got it — we\'ll avoid these in your recommendations',
   },
 
-  // Q11: Renovation appetite
+  // Q12: Renovation appetite
   {
     id: 'renovation_appetite',
     type: 'chip_single',
@@ -188,7 +223,38 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     ],
   },
 
-  // Q12: Architectural style preference
+  // Q13: Parking needs
+  {
+    id: 'parking_needs',
+    type: 'chip_single',
+    label: 'How important is off-street parking?',
+    subtitle: 'In Greater Boston, parking varies wildly by neighborhood.',
+    required: true,
+    options: [
+      'Must have — garage or driveway, non-negotiable',
+      'Strongly prefer — at least 1 dedicated spot',
+      'Nice to have — but I\'d give it up for the right place',
+      'Don\'t need — I use transit or don\'t own a car',
+    ],
+  },
+
+  // Q14: Neighborhood vibe
+  {
+    id: 'neighborhood_vibe',
+    type: 'chip_single',
+    label: 'What kind of neighborhood energy do you want?',
+    subtitle: 'Think about the streets around your home, not just the house.',
+    required: false,
+    options: [
+      'Village center — shops, restaurants, people around',
+      'Quiet residential — tree-lined streets, kids on bikes',
+      'Up-and-coming — rougher edges but improving fast',
+      'Rural-ish — space between houses, nature nearby',
+      'Mixed — side street near the action',
+    ],
+  },
+
+  // Q15: Architectural style (merged with former home_era)
   {
     id: 'home_style',
     type: 'chip_multi',
@@ -197,25 +263,25 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     required: false,
     maxSelections: 3,
     options: [
-      'Colonial',
-      'Cape Cod',
-      'Craftsman',
-      'Contemporary / Modern',
+      'Colonial / Traditional',
+      'Cape Cod / Classic New England',
+      'Craftsman / Bungalow',
+      'Contemporary / Modern / New Construction',
       'Ranch / Single-story',
-      'Victorian',
+      'Victorian / Historic',
       'Farmhouse',
-      'Townhouse / Row',
       'No preference',
     ],
   },
 
-  // Q13: Era / age preference
+  // Q13 (old): Era / age preference — merged into home_style above
   {
     id: 'home_era',
     type: 'chip_single',
     label: 'How old of a home are you comfortable with?',
     subtitle: 'Older homes have charm but may need more maintenance.',
     required: false,
+    skipInV1: true,
     options: [
       'New construction only (2020+)',
       'Recently built (2000–2020)',
@@ -225,7 +291,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     ],
   },
 
-  // Q14: Materials / features that matter
+  // Q16: Materials / features that matter
   {
     id: 'home_features',
     type: 'chip_multi',
@@ -247,34 +313,20 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     ],
   },
 
-  // Q15: Lighting / orientation
+  // Q15 (old): Lighting / orientation — skipped in v1 (never used by match engine)
   {
     id: 'light_preference',
     type: 'chip_single',
     label: 'When does natural light matter most to you?',
     subtitle: 'This helps us evaluate home orientation.',
     required: false,
+    skipInV1: true,
     options: [
       'Morning light (east-facing) — I\'m an early riser',
       'Afternoon sun (south/west) — warm and bright',
       'All-day light — as much as possible',
       'Soft, indirect — I don\'t want harsh glare',
       'Not a big factor for me',
-    ],
-  },
-
-  // Q16: Move-in timeline
-  {
-    id: 'move_timeline',
-    type: 'chip_single',
-    label: 'How soon do you need to move in?',
-    subtitle: 'This affects which homes we prioritize.',
-    required: false,
-    options: [
-      'ASAP — within 2 months',
-      '3–6 months',
-      '6–12 months — no rush',
-      'Just exploring for now',
     ],
   },
 
@@ -293,7 +345,37 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
     ],
   },
 
-  // Q18: Open text
+  // Q18: HOA tolerance (relevant for condo buyers)
+  {
+    id: 'hoa_tolerance',
+    type: 'chip_single',
+    label: 'How do you feel about monthly HOA/condo fees?',
+    subtitle: 'In Greater Boston, condo fees typically run $300–$700/month.',
+    required: false,
+    options: [
+      'Under $300/month — keep it minimal',
+      'Up to $500 if amenities are good',
+      'Doesn\'t matter if the home is right',
+      'Not considering condos',
+    ],
+  },
+
+  // Q19: Move-in timeline
+  {
+    id: 'move_timeline',
+    type: 'chip_single',
+    label: 'How soon do you need to move in?',
+    subtitle: 'This affects which homes we prioritize.',
+    required: false,
+    options: [
+      'ASAP — within 2 months',
+      '3–6 months',
+      '6–12 months — no rush',
+      'Just exploring for now',
+    ],
+  },
+
+  // Q20: Open text
   {
     id: 'open_text',
     type: 'open_text',

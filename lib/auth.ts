@@ -1,17 +1,15 @@
-import { prisma } from "@/lib/prisma"
+import { getServerSession } from "next-auth"
+import { getToken } from "next-auth/jwt"
+import { authOptions } from "@/lib/auth-options"
+import type { NextRequest } from "next/server"
 
-/**
- * Simple auth for v1: reads `?as=user_<id>` from URL search params.
- * Returns the user object or null.
- */
-export async function getSession(searchParams: { as?: string }) {
-  const userId = searchParams.as
-  if (!userId) return null
+export async function getSessionUser() {
+  const session = await getServerSession(authOptions)
+  return session?.user ?? null
+}
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: { buyerProfile: true },
-  })
-
-  return user
+export async function getApiUser(request: NextRequest) {
+  const token = await getToken({ req: request })
+  if (!token?.sub) return null
+  return { id: token.sub, role: token.role as string }
 }

@@ -1,83 +1,120 @@
 import { prisma } from "@/lib/prisma"
-import { cookies } from "next/headers"
+import { getServerSession } from "next-auth"
+import { authOptions } from "@/lib/auth-options"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PortraitCard } from "@/components/portrait/PortraitCard"
 import { MatchList } from "@/components/matches/MatchList"
+import { SignOutButton } from "@/components/auth/SignOutButton"
 
 export const dynamic = "force-dynamic"
 
 export default async function BuyerDashboard() {
-  const cookieStore = cookies()
-  const userId = cookieStore.get("homematch_user")?.value
+  const session = await getServerSession(authOptions)
+  const userId = session?.user?.id
 
   if (!userId) return <p>Not authenticated</p>
 
   const user = await prisma.user.findUnique({ where: { id: userId } })
-  const profile = await prisma.buyerProfile.findFirst({
+  let profile = await prisma.buyerProfile.findFirst({
     where: { userId },
     include: { intakeResponse: true },
   })
 
+  if (!profile) {
+    const created = await prisma.buyerProfile.create({
+      data: { userId, agentId: userId },
+    })
+    profile = { ...created, intakeResponse: null }
+  }
+
   const hasCompletedIntake = !!profile?.intakeResponse?.completedAt
 
   return (
-    <main className="min-h-screen bg-slate-50">
+    <main className="min-h-screen bg-[#f5f5f7]">
       {/* Header */}
-      <div className="bg-white border-b px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-slate-900">HomeMatch</h1>
-          <p className="text-sm text-slate-500">Welcome, {user?.name}</p>
+      <header className="bg-white/80 backdrop-blur-xl sticky top-0 z-10">
+        <div className="max-w-[640px] mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-lg font-semibold text-[#1d1d1f]">HomeMatch</span>
+            {hasCompletedIntake && (
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-green-50 text-green-700 font-medium">
+                Profile Active
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-[#86868b]">{user?.name}</span>
+            <SignOutButton />
+          </div>
         </div>
-        <Link href="/switch" className="text-xs text-slate-400 hover:text-slate-600">
-          Switch →
-        </Link>
-      </div>
+      </header>
 
-      <div className="max-w-lg mx-auto p-6 space-y-6">
-        {/* Intake CTA or status */}
+      <div className="max-w-[640px] mx-auto px-6 py-12 space-y-10">
         {!hasCompletedIntake ? (
-          <Card className="border-blue-200 bg-blue-50">
-            <CardHeader>
-              <CardTitle className="text-lg text-blue-900">
-                🏠 Let&apos;s discover what you really want
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm text-blue-700">
-                Answer 12 quick questions to help us understand your priorities.
-                Takes about 5 minutes — and we&apos;ll share insights as you go.
+          /* Onboarding state */
+          <div className="pt-4 space-y-10">
+            <div className="text-center space-y-4">
+              <h1 className="text-3xl font-semibold text-[#1d1d1f] tracking-tight">
+                Let&apos;s find out what you&apos;re really looking for
+              </h1>
+              <p className="text-base text-[#86868b] max-w-md mx-auto leading-relaxed">
+                Most home searches start with beds and budget. We start with how you live &mdash;
+                then match you to homes that actually fit.
               </p>
-              <Link href="/buyer/intake">
-                <Button className="w-full">Start Intake Questionnaire →</Button>
-              </Link>
-            </CardContent>
-          </Card>
-        ) : (
-          <>
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-slate-900">Your Self Portrait</h2>
-              <Link href="/buyer/intake" className="text-xs text-blue-600 hover:underline">
-                Retake →
+            </div>
+
+            <div className="bg-white rounded-2xl p-10 space-y-8 shadow-sm">
+              <div className="space-y-6">
+                <div className="flex items-start gap-4">
+                  <div className="w-9 h-9 rounded-xl bg-[#007AFF]/10 flex items-center justify-center text-[#007AFF] text-sm font-semibold shrink-0 mt-0.5">1</div>
+                  <div>
+                    <p className="font-medium text-[#1d1d1f]">Take the intake questionnaire</p>
+                    <p className="text-sm text-[#86868b] mt-0.5">~5 minutes. Lifestyle questions, not just specs.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-9 h-9 rounded-xl bg-[#f5f5f7] flex items-center justify-center text-[#86868b] text-sm font-semibold shrink-0 mt-0.5">2</div>
+                  <div>
+                    <p className="font-medium text-[#86868b]">Get your buyer portrait</p>
+                    <p className="text-sm text-[#86868b]/60 mt-0.5">AI-generated insights about your priorities.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-9 h-9 rounded-xl bg-[#f5f5f7] flex items-center justify-center text-[#86868b] text-sm font-semibold shrink-0 mt-0.5">3</div>
+                  <div>
+                    <p className="font-medium text-[#86868b]">See your matches</p>
+                    <p className="text-sm text-[#86868b]/60 mt-0.5">Listings scored against your profile.</p>
+                  </div>
+                </div>
+              </div>
+
+              <Link href="/buyer/intake" className="block">
+                <Button className="w-full h-12 text-sm font-medium rounded-xl bg-[#1d1d1f] hover:bg-[#333336] text-white transition-all">
+                  Start Questionnaire
+                </Button>
               </Link>
             </div>
-            <p className="text-xs text-slate-500 -mt-4">
-              Based on your intake. This evolves as you see homes.
-            </p>
-            <PortraitCard />
+          </div>
+        ) : (
+          /* Active state — has completed intake */
+          <>
+            {/* Portrait section */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-[#1d1d1f] tracking-tight">Your Buyer Portrait</h2>
+                <Link href="/buyer/intake" className="text-sm text-[#007AFF] hover:text-[#0056b3] transition-all">
+                  Retake
+                </Link>
+              </div>
+              <PortraitCard />
+            </section>
 
-            {/* Matched Listings */}
-            <MatchList />
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Upcoming Showings</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-400 italic">No showings scheduled yet.</p>
-              </CardContent>
-            </Card>
+            {/* Matches section */}
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-[#1d1d1f] tracking-tight">Your Matches</h2>
+              <MatchList />
+            </section>
           </>
         )}
       </div>
