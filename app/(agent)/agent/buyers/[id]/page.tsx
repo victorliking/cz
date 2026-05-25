@@ -8,6 +8,7 @@ import Link from "next/link"
 import { AgentFeedbackSection } from "@/components/feedback/AgentFeedbackSection"
 import { InsightsPanel } from "./InsightsPanel"
 import { PastObservations } from "@/components/observations/PastObservations"
+import { STYLE_EXAMPLES } from "@/lib/data/style-examples"
 
 export const dynamic = "force-dynamic"
 
@@ -96,6 +97,32 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
           </div>
         </div>
       </div>
+
+      {/* Style Preferences — Visual */}
+      {portrait.homePreferences?.styles.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Style Preferences</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {portrait.homePreferences.styles.map((styleId: string) => {
+              const style = STYLE_EXAMPLES.find((s) => s.id === styleId)
+              if (!style) return null
+              return (
+                <div key={styleId} className="relative rounded-xl overflow-hidden border border-slate-200 aspect-[4/3]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={style.photoUrl}
+                    alt={style.label}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-3">
+                    <p className="text-white text-sm font-medium">{style.label}</p>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Behavioral Insights Panel */}
       <InsightsPanel buyerProfileId={profile.id} />

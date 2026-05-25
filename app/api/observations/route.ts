@@ -110,7 +110,11 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json()
   const {
-    showingId,
+    showingId: existingShowingId,
+    buyerProfileId,
+    listingId,
+    customAddress,
+    showingDate,
     lingeredOn,
     reactedNegativelyTo,
     unpromptedQuotes,
@@ -118,27 +122,80 @@ export async function POST(request: NextRequest) {
     agentConfidence,
   } = body
 
-  if (!showingId || !Array.isArray(lingeredOn) || !Array.isArray(reactedNegativelyTo) || typeof agentConfidence !== "number") {
+  if (!Array.isArray(lingeredOn) || !Array.isArray(reactedNegativelyTo) || typeof agentConfidence !== "number") {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
   }
 
-  // Verify the showing exists and belongs to this agent's buyer
-  const showing = await prisma.showing.findUnique({
-    where: { id: showingId },
-    include: {
-      buyerProfile: { include: { intakeResponse: true } },
-      listing: true,
-    },
-  })
+  let showing: any
 
-  if (!showing || showing.buyerProfile.agentId !== apiUser.id) {
-    return NextResponse.json({ error: "Showing not found or unauthorized" }, { status: 404 })
+  if (existingShowingId) {
+    showing = await prisma.showing.findUnique({
+      where: { id: existingShowingId },
+      include: {
+        buyerProfile: { include: { intakeResponse: true } },
+        listing: true,
+      },
+    })
+    if (!showing || showing.buyerProfile.agentId !== apiUser.id) {
+      return NextResponse.json({ error: "Showing not found or unauthorized" }, { status: 404 })
+    }
+  } else {
+    if (!buyerProfileId) {
+      return NextResponse.json({ error: "buyerProfileId required when no showingId" }, { status: 400 })
+    }
+
+    const profile = await prisma.buyerProfile.findUnique({
+      where: { id: buyerProfileId },
+      include: { intakeResponse: true },
+    })
+    if (!profile || profile.agentId !== apiUser.id) {
+      return NextResponse.json({ error: "Buyer profile not found or unauthorized" }, { status: 404 })
+    }
+
+    let resolvedListingId = listingId
+    if (!resolvedListingId && customAddress) {
+      const newListing = await prisma.listing.create({
+        data: {
+          agentId: apiUser.id,
+          address: customAddress,
+          city: "",
+          state: "MA",
+          zipCode: "",
+          listPrice: 0,
+          propertyType: "SFH",
+          bedrooms: 0,
+          bathroomsFull: 0,
+          vector: {},
+        },
+      })
+      resolvedListingId = newListing.id
+    }
+
+    if (!resolvedListingId) {
+      return NextResponse.json({ error: "Select a listing or enter an address" }, { status: 400 })
+    }
+
+    const scheduledAt = showingDate ? new Date(showingDate) : new Date()
+
+    showing = await prisma.showing.create({
+      data: {
+        buyerProfileId,
+        listingId: resolvedListingId,
+        scheduledAt,
+        attendedAt: scheduledAt,
+        mode: "IN_PERSON",
+      },
+      include: {
+        buyerProfile: { include: { intakeResponse: true } },
+        listing: true,
+      },
+    })
   }
 
   // Create the observation
   const observation = await prisma.agentObservation.create({
     data: {
-      showingId,
+      showingId: showing.id,
       agentId: apiUser.id,
       lingeredOn,
       reactedNegativelyTo,

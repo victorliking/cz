@@ -35,9 +35,10 @@ const DURATION_OPTIONS = [
   { value: "longer", label: "Lingered longer than usual" },
 ]
 
-interface ShowingInfo {
-  buyerName: string
-  listingAddress: string
+interface ListingOption {
+  id: string
+  address: string
+  city: string
 }
 
 export function ObservationForm() {
@@ -45,10 +46,12 @@ export function ObservationForm() {
   const router = useRouter()
 
   const buyerId = searchParams.get("buyerId") || ""
-  const listingId = searchParams.get("listingId") || ""
   const showingId = searchParams.get("showingId") || ""
 
-  const [showingInfo, setShowingInfo] = useState<ShowingInfo | null>(null)
+  const [listings, setListings] = useState<ListingOption[]>([])
+  const [selectedListingId, setSelectedListingId] = useState("")
+  const [customAddress, setCustomAddress] = useState("")
+  const [showingDate, setShowingDate] = useState(new Date().toISOString().slice(0, 10))
   const [lingeredOn, setLingeredOn] = useState<string[]>([])
   const [reactedNegativelyTo, setReactedNegativelyTo] = useState<string[]>([])
   const [unpromptedQuotes, setUnpromptedQuotes] = useState("")
@@ -59,14 +62,13 @@ export function ObservationForm() {
   const [error, setError] = useState("")
 
   useEffect(() => {
-    if (!showingId) return
-    fetch(`/api/observations/showing-info?showingId=${showingId}`)
+    fetch("/api/listings")
       .then((r) => r.json())
       .then((data) => {
-        if (data.buyerName) setShowingInfo(data)
+        if (data.listings) setListings(data.listings)
       })
       .catch(() => {})
-  }, [showingId])
+  }, [])
 
   function toggleChip(value: string, selected: string[], setSelected: (v: string[]) => void) {
     if (selected.includes(value)) {
@@ -77,8 +79,8 @@ export function ObservationForm() {
   }
 
   async function handleSubmit() {
-    if (!showingId) {
-      setError("Missing showing ID")
+    if (!showingId && !selectedListingId && !customAddress.trim()) {
+      setError("Select a listing or enter an address")
       return
     }
 
@@ -90,7 +92,11 @@ export function ObservationForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          showingId,
+          showingId: showingId || undefined,
+          buyerProfileId: buyerId,
+          listingId: selectedListingId || undefined,
+          customAddress: customAddress.trim() || undefined,
+          showingDate,
           lingeredOn,
           reactedNegativelyTo,
           unpromptedQuotes: unpromptedQuotes.trim() || null,
@@ -149,22 +155,70 @@ export function ObservationForm() {
           <h1 className="text-2xl font-bold" style={{ color: "#1d1d1f" }}>
             Record Observation
           </h1>
-          {showingInfo && (
-            <div className="mt-2">
-              <p className="text-sm" style={{ color: "#86868b" }}>
-                {showingInfo.buyerName} at {showingInfo.listingAddress}
-              </p>
-            </div>
-          )}
-          {!showingInfo && (showingId || listingId) && (
-            <p className="text-sm mt-2" style={{ color: "#86868b" }}>
-              Showing #{showingId.slice(0, 8)}
-            </p>
-          )}
+          <p className="text-sm mt-1" style={{ color: "#86868b" }}>
+            Log what you noticed during a showing to improve preference learning.
+          </p>
         </div>
 
         {/* Form */}
         <div className="space-y-8">
+          {/* Property Selection (only if no showingId) */}
+          {!showingId && (
+            <div className="bg-white rounded-2xl shadow-sm p-6">
+              <h2 className="text-sm font-semibold uppercase tracking-wide mb-1" style={{ color: "#1d1d1f" }}>
+                Property Shown
+              </h2>
+              <p className="text-xs mb-4" style={{ color: "#86868b" }}>
+                Select from your listings or enter an address manually.
+              </p>
+
+              {listings.length > 0 && (
+                <select
+                  value={selectedListingId}
+                  onChange={(e) => {
+                    setSelectedListingId(e.target.value)
+                    if (e.target.value) setCustomAddress("")
+                  }}
+                  className="w-full rounded-xl border px-4 py-3 text-sm mb-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ borderColor: "#e5e5e7", color: "#1d1d1f" }}
+                >
+                  <option value="">-- Select a listing --</option>
+                  {listings.map((l) => (
+                    <option key={l.id} value={l.id}>{l.address}, {l.city}</option>
+                  ))}
+                </select>
+              )}
+
+              <div className="flex items-center gap-3 mb-3">
+                <div className="h-px flex-1 bg-slate-200" />
+                <span className="text-xs text-slate-400">or</span>
+                <div className="h-px flex-1 bg-slate-200" />
+              </div>
+
+              <input
+                value={customAddress}
+                onChange={(e) => {
+                  setCustomAddress(e.target.value)
+                  if (e.target.value) setSelectedListingId("")
+                }}
+                placeholder="Type an address (e.g., 45 Elm St, Arlington)"
+                className="w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{ borderColor: "#e5e5e7", color: "#1d1d1f" }}
+              />
+
+              <div className="mt-4">
+                <label className="text-xs font-medium" style={{ color: "#86868b" }}>Showing date</label>
+                <input
+                  type="date"
+                  value={showingDate}
+                  onChange={(e) => setShowingDate(e.target.value)}
+                  className="w-full rounded-xl border px-4 py-3 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  style={{ borderColor: "#e5e5e7", color: "#1d1d1f" }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Lingered On */}
           <div className="bg-white rounded-2xl shadow-sm p-6">
             <h2 className="text-sm font-semibold uppercase tracking-wide mb-1" style={{ color: "#1d1d1f" }}>
@@ -237,10 +291,7 @@ export function ObservationForm() {
               placeholder={'"I could really see us having dinner parties here..." or "This reminds me of my grandmother\'s house"'}
               rows={4}
               className="w-full rounded-xl border px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-              style={{
-                borderColor: "#e5e5e7",
-                color: "#1d1d1f",
-              }}
+              style={{ borderColor: "#e5e5e7", color: "#1d1d1f" }}
             />
           </div>
 
@@ -266,9 +317,7 @@ export function ObservationForm() {
                 >
                   <div
                     className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
-                    style={{
-                      borderColor: durationVsAverage === option.value ? "#007AFF" : "#86868b",
-                    }}
+                    style={{ borderColor: durationVsAverage === option.value ? "#007AFF" : "#86868b" }}
                   >
                     {durationVsAverage === option.value && (
                       <div className="w-2 h-2 rounded-full" style={{ backgroundColor: "#007AFF" }} />
@@ -331,10 +380,7 @@ export function ObservationForm() {
             onClick={handleSubmit}
             disabled={submitting}
             className="w-full py-4 rounded-2xl text-base font-semibold transition-all disabled:opacity-50"
-            style={{
-              backgroundColor: "#007AFF",
-              color: "#ffffff",
-            }}
+            style={{ backgroundColor: "#007AFF", color: "#ffffff" }}
           >
             {submitting ? "Saving..." : "Save Observation"}
           </button>
