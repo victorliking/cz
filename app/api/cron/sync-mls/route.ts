@@ -21,6 +21,7 @@ import {
   buildAddress,
 } from '@/lib/mls/field-map'
 import { resolveTownName } from '@/lib/mls/town-map'
+import { decodeCp1252 } from '@/lib/mls/decode'
 import { autoDeriveVector } from '@/lib/mls/auto-derive-vector'
 import { getSchoolRatingNumber } from '@/lib/geo/school-ratings'
 
@@ -270,7 +271,7 @@ async function downloadIdxFile(
       })
 
       if (response.ok) {
-        const text = await response.text()
+        const text = decodeCp1252(Buffer.from(await response.arrayBuffer()))
         if (text.includes('|') && !text.toLowerCase().includes('<html')) {
           return text
         }
@@ -292,7 +293,7 @@ async function downloadIdxFile(
       })
 
       if (response.ok) {
-        const text = await response.text()
+        const text = decodeCp1252(Buffer.from(await response.arrayBuffer()))
         if (text.includes('|') && !text.toLowerCase().includes('<html')) {
           return text
         }

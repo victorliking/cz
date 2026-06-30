@@ -21,6 +21,13 @@
 import { readFileSync, existsSync } from 'fs'
 import { join } from 'path'
 import { parseMlsFile } from './parser'
+import { decodeCp1252 } from './decode'
+
+// MLS PIN IDX files are Windows-1252, not UTF-8. Read as a buffer and decode
+// CP1252 so smart punctuation (em-dash, curly quotes) doesn't become "�".
+function readMlsFile(path: string): string {
+  return decodeCp1252(readFileSync(path))
+}
 import {
   MappedListing,
   STATUS_MAP, PROP_TYPE_MAP,
@@ -112,7 +119,7 @@ export function syncFromFiles(options: SyncOptions = {}): {
     }
 
     console.log(`📂 Processing ${fileName}...`)
-    const content = readFileSync(filePath, 'utf-8')
+    const content = readMlsFile(filePath)
     const records = parseMlsFile<Record<string, string | null>>(content)
     
     console.log(`   Parsed ${records.length} records from ${fileName}`)
@@ -256,7 +263,7 @@ export function resolveTownNames(
     return listings
   }
 
-  const content = readFileSync(filePath, 'utf-8')
+  const content = readMlsFile(filePath)
   const townRecords = parseMlsFile<Record<string, string | null>>(content)
   
   // Build lookup map
@@ -298,7 +305,7 @@ function loadTownMap(dataDir: string): Map<number, string> {
     return map
   }
 
-  const content = readFileSync(filePath, 'utf-8')
+  const content = readMlsFile(filePath)
   const records = parseMlsFile<Record<string, string | null>>(content)
   
   for (const rec of records) {
@@ -323,7 +330,7 @@ function loadStyleMap(dataDir: string): Map<string, string> {
     return map
   }
 
-  const content = readFileSync(filePath, 'utf-8')
+  const content = readMlsFile(filePath)
   const records = parseMlsFile<Record<string, string | null>>(content)
   
   for (const rec of records) {
