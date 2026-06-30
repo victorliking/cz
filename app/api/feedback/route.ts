@@ -21,6 +21,8 @@ export interface ShowingFeedbackEntry {
   verdict: "love" | "like" | "neutral" | "dislike"
   notes: string
   adjustments: string
+  /** List price of the shown home, when known — powers budget-drift detection. */
+  listPrice?: number
 }
 
 async function resolveProfileWithIntake(userId: string, buyerProfileId?: string | null) {
@@ -64,6 +66,11 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json()
   const { address, liked, disliked, verdict, notes, adjustments, listingDimensions, buyerProfileId } = body
+  // Price of the shown home, if the caller provides it (field name varies).
+  const bodyListPrice =
+    typeof body.listPrice === "number" ? body.listPrice
+    : typeof body.price === "number" ? body.price
+    : undefined
 
   const profile = await resolveProfileWithIntake(userId, buyerProfileId)
   if (!profile?.intakeResponse) {
@@ -79,6 +86,7 @@ export async function POST(request: NextRequest) {
     verdict: verdict || "neutral",
     notes: notes || "",
     adjustments: adjustments || "",
+    ...(bodyListPrice !== undefined ? { listPrice: bodyListPrice } : {}),
   }
 
   const answers = (profile.intakeResponse.answers as Record<string, unknown>) || {}
@@ -142,12 +150,19 @@ export async function POST(request: NextRequest) {
   let newInsights: GeneratedInsight[] = []
   if (prefState && prefState.evidenceCount >= 3) {
     const priorityRanking = (answers.priority_ranking as string[]) || []
+
+    // Resolve list prices for budget-drift detection. Entries created by the
+    // showing form only carry an address, so backfill missing prices by matching
+    // the entry address against the agent's listings (one batched query).
+    const priceByAddress = await resolvePricesByAddress(userId, existing)
+
     const feedbackHistoryForInsights: FeedbackHistory[] = existing.map((f) => ({
       id: f.id,
       verdict: f.verdict,
       liked: f.liked,
       disliked: f.disliked,
       address: f.address,
+      listPrice: f.listPrice ?? priceByAddress.get(normalizeAddress(f.address)),
     }))
 
     newInsights = await generateInsights({
@@ -174,4 +189,41 @@ export async function POST(request: NextRequest) {
     } : null,
     insights: newInsights.length > 0 ? newInsights : null,
   })
+}
+
+/** Normalize an address for loose matching (case/whitespace/punctuation insensitive). */
+function normalizeAddress(address: string): string {
+  return address.toLowerCase().replace(/[.,]/g, "").replace(/\s+/g, " ").trim()
+}
+
+/**
+ * Backfill list prices for feedback entries that lack one by matching their
+ * address against the agent's listings. Returns a map of normalized address →
+ * listPrice. Entries that already carry a price don't need a lookup.
+ */
+async function resolvePricesByAddress(
+  agentId: string,
+  entries: ShowingFeedbackEntry[]
+): Promise<Map<string, number>> {
+  const result = new Map<string, number>()
+
+  const missingAddresses = entries
+    .filter((e) => e.listPrice === undefined && e.address.trim().length > 0)
+    .map((e) => e.address.trim())
+  if (missingAddresses.length === 0) return result
+
+  const listings = await prisma.listing.findMany({
+    where: {
+      agentId,
+      address: { in: missingAddresses, mode: "insensitive" as any },
+    },
+    select: { address: true, listPrice: true },
+  })
+
+  for (const listing of listings) {
+    if (listing.listPrice > 0) {
+      result.set(normalizeAddress(listing.address), listing.listPrice)
+    }
+  }
+  return result
 }

@@ -1,17 +1,28 @@
 /**
- * AI-powered portrait narrative generation via Anthropic Claude API.
- * 
+ * AI-powered portrait narrative generation via Claude on AWS Bedrock.
+ *
  * Architecture:
  * - Structured data (numbers, filters, weights) = deterministic (generate-portrait.ts)
  * - Narrative prose (insights, blind spots, strategy) = AI-generated (this file)
+ *
+ * Uses Claude Sonnet 4.6 via Bedrock (same client pattern as lib/vision/classify-style.ts).
  */
 
-import Anthropic from "@anthropic-ai/sdk"
+import {
+  BedrockRuntimeClient,
+  InvokeModelCommand,
+} from "@aws-sdk/client-bedrock-runtime"
 
-const getClient = () => {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return null
-  return new Anthropic({ apiKey })
+const MODEL_ID = "us.anthropic.claude-sonnet-4-6"
+const AWS_REGION = "us-west-2"
+
+let _client: BedrockRuntimeClient | null = null
+
+function getClient(): BedrockRuntimeClient {
+  if (!_client) {
+    _client = new BedrockRuntimeClient({ region: AWS_REGION })
+  }
+  return _client
 }
 
 export interface AIPortraitNarrative {
@@ -23,30 +34,41 @@ export interface AIPortraitNarrative {
 
 /**
  * Generate AI-powered narrative for a buyer portrait.
- * Returns null if API key not configured or call fails.
+ * Returns null if the Bedrock call fails (caller falls back to deterministic prose).
  */
 export async function generateAINarrative(
   answers: Record<string, unknown>,
   locale: "en" | "zh" = "en"
 ): Promise<AIPortraitNarrative | null> {
-  const client = getClient()
-  if (!client) return null
-
   const systemPrompt = buildSystemPrompt(locale)
   const userPrompt = buildUserPrompt(answers, locale)
 
   try {
-    const response = await client.messages.create({
-      model: "claude-opus-4-20250514",
+    const client = getClient()
+
+    const body = JSON.stringify({
+      anthropic_version: "bedrock-2023-05-31",
       max_tokens: 2000,
-      temperature: 0.7,
       system: systemPrompt,
       messages: [
         { role: "user", content: userPrompt },
       ],
     })
 
-    const text = response.content[0].type === "text" ? response.content[0].text : null
+    const command = new InvokeModelCommand({
+      modelId: MODEL_ID,
+      contentType: "application/json",
+      accept: "application/json",
+      body: new TextEncoder().encode(body),
+    })
+
+    const response = await client.send(command)
+    const responseBody = JSON.parse(new TextDecoder().decode(response.body))
+
+    const textBlock = responseBody.content?.find(
+      (block: any) => block.type === "text"
+    )
+    const text = textBlock?.text ?? null
     if (!text) return null
 
     // Extract JSON from response — handle markdown wrapping and malformed JSON
@@ -60,7 +82,7 @@ export async function generateAINarrative(
     jsonStr = jsonStr.slice(start, end + 1)
 
     // Try to fix common JSON issues (unescaped newlines in strings)
-    jsonStr = jsonStr.replace(/[\r\n]+/g, (match) => "\\n")
+    jsonStr = jsonStr.replace(/[\r\n]+/g, "\\n")
     // But re-add structural newlines between properties
     jsonStr = jsonStr.replace(/\\n\s*"/g, '\n"')
     jsonStr = jsonStr.replace(/\\n\s*}/g, '\n}')

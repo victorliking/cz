@@ -12,8 +12,53 @@
 
 import type { BuyerPortrait } from "@/lib/portrait/generate-portrait"
 import type { PreferenceState } from "./bayesian-learner"
-import type { StyleClassification, BuyerStylePreferences } from "@/lib/vision/style-tags"
+import type { StyleClassification, BuyerStylePreferences, ArchitecturalStyle, EraFeel } from "@/lib/vision/style-tags"
+import { STYLE_CATEGORIES } from "@/lib/vision/style-tags"
 import { computeStyleMatchScore } from "@/lib/vision/style-matcher"
+
+/**
+ * Buyer intake stores architectural style picks as the VisualStylePicker ids
+ * (see lib/data/style-examples.ts), e.g. "cape", "bungalow", "cottage".
+ * The AI vision taxonomy (lib/vision/style-tags.ts) uses different keys, e.g.
+ * "cape_cod", "craftsman", "farmhouse". Without normalization the buyer's
+ * style prefs never overlap the listing's classified tags, so style scoring
+ * silently no-ops. This map bridges intake ids → taxonomy ArchitecturalStyle.
+ */
+const STYLE_ID_TO_ARCHITECTURAL: Record<string, ArchitecturalStyle> = {
+  colonial: "colonial",
+  cape: "cape_cod",
+  cape_cod: "cape_cod",
+  contemporary: "contemporary",
+  modern: "contemporary",
+  victorian: "victorian",
+  ranch: "ranch",
+  tudor: "tudor",
+  bungalow: "craftsman",
+  craftsman: "craftsman",
+  cottage: "farmhouse",
+  farmhouse: "farmhouse",
+}
+
+const ARCHITECTURAL_SET = new Set<string>(STYLE_CATEGORIES.architectural)
+const ERA_SET = new Set<string>(STYLE_CATEGORIES.era)
+
+/**
+ * Normalize a buyer's stated style picks (intake ids or free strings) into the
+ * taxonomy's ArchitecturalStyle values so they can match listing style_tags.
+ */
+function normalizeBuyerArchitecturalStyles(styles: string[]): ArchitecturalStyle[] {
+  const normalized = new Set<ArchitecturalStyle>()
+  for (const raw of styles) {
+    const key = raw.toLowerCase().trim().replace(/\s+/g, "_")
+    const mapped = STYLE_ID_TO_ARCHITECTURAL[key]
+    if (mapped) {
+      normalized.add(mapped)
+    } else if (ARCHITECTURAL_SET.has(key)) {
+      normalized.add(key as ArchitecturalStyle)
+    }
+  }
+  return [...normalized]
+}
 
 export interface ListingForMatch {
   id: string
@@ -256,16 +301,14 @@ function scoreListing(
 
   // Bonus: AI vision style match (uses structured style tags when available)
   if (listing.dimensions.style_tags && portrait.homePreferences?.styles.length > 0) {
-    // Convert portrait styles into BuyerStylePreferences format
+    // Convert portrait styles into BuyerStylePreferences format.
+    // Buyer picks are intake ids (e.g. "cape", "bungalow") — normalize them to
+    // the taxonomy so they actually overlap the listing's classified tags.
+    const architectural_style = normalizeBuyerArchitecturalStyles(portrait.homePreferences.styles)
+    const eraKey = portrait.homePreferences.era?.toLowerCase().trim().replace(/\s+/g, "_")
     const buyerStylePrefs: BuyerStylePreferences = {
-      architectural_style: portrait.homePreferences.styles
-        .map((s) => s.toLowerCase().replace(/\s+/g, "_"))
-        .filter((s): s is BuyerStylePreferences["architectural_style"] extends (infer T)[] | undefined ? T : never =>
-          ["colonial", "cape_cod", "craftsman", "contemporary", "ranch", "victorian", "farmhouse", "tudor", "mid_century", "split_level", "garrison", "greek_revival"].includes(s)
-        ),
-      era_feel: portrait.homePreferences.era
-        ? [portrait.homePreferences.era as BuyerStylePreferences["era_feel"] extends (infer T)[] | undefined ? T : never].filter(Boolean)
-        : undefined,
+      architectural_style: architectural_style.length > 0 ? architectural_style : undefined,
+      era_feel: eraKey && ERA_SET.has(eraKey) ? [eraKey as EraFeel] : undefined,
     }
     const styleScore = computeStyleMatchScore(buyerStylePrefs, listing.dimensions.style_tags)
     // Convert 0-100 style score to a weighted bonus (max +8 points)

@@ -1,12 +1,30 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
+import { verifyIntakeToken } from "@/lib/intake-token"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
+  const rl = rateLimit(`intake-submit:${getClientIp(request)}`, {
+    limit: 10,
+    windowMs: 60_000,
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    )
+  }
+
   const body = await request.json()
-  const { answers, buyerProfileId } = body
+  const { answers, buyerProfileId, token } = body
 
   if (!buyerProfileId || !answers) {
     return NextResponse.json({ error: "Missing data" }, { status: 400 })
+  }
+
+  // Fail-closed: the request must carry a valid signed token for this profile.
+  if (!verifyIntakeToken(buyerProfileId, token)) {
+    return NextResponse.json({ error: "Invalid or expired link" }, { status: 403 })
   }
 
   const profile = await prisma.buyerProfile.findUnique({

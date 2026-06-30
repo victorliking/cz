@@ -51,8 +51,19 @@ export default function AgentBuyersPage() {
     setSubmitting(false)
   }
 
-  const copyLink = (profileId: string) => {
-    const link = `${window.location.origin}/intake/${profileId}`
+  const copyLink = async (profileId: string) => {
+    // Mint a signed, expiring token server-side before building the link.
+    const res = await fetch("/api/intake/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ profileId }),
+    })
+    if (!res.ok) {
+      alert("Could not generate a secure intake link. Please try again.")
+      return
+    }
+    const { token } = await res.json()
+    const link = `${window.location.origin}/intake/${profileId}?t=${encodeURIComponent(token)}`
     navigator.clipboard.writeText(link)
     setCopied(profileId)
     setTimeout(() => setCopied(null), 2000)
