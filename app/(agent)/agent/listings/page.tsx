@@ -15,17 +15,26 @@ export default async function ListingsPage() {
     return <p>Not authenticated</p>
   }
 
+  // Show the agent's own listings plus the shared MLS inventory owned by any
+  // AGENT-role/system user — the same working set the buyer match engine uses.
   const listings = await prisma.listing.findMany({
-    where: { agentId: userId },
+    where: {
+      OR: [{ agentId: userId }, { agent: { role: "AGENT" } }],
+    },
     orderBy: { createdAt: "desc" },
   })
+
+  const ownedCount = listings.filter((l) => l.agentId === userId).length
 
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Listings</h1>
-          <p className="text-slate-500 mt-1">{listings.length} properties</p>
+          <p className="text-slate-500 mt-1">
+            {listings.length.toLocaleString()} properties
+            {ownedCount > 0 && <span className="text-slate-400"> · {ownedCount.toLocaleString()} yours</span>}
+          </p>
         </div>
         <Link href="/agent/listings/new">
           <Button size="lg">+ New Listing</Button>
@@ -90,6 +99,11 @@ export default async function ListingsPage() {
                     <span className="text-sm text-slate-500">
                       {listing.bedrooms} bed · {listing.bathroomsFull} bath
                     </span>
+                    {listing.agentId !== userId && (
+                      <Badge variant="outline" className="text-xs">
+                        Shared
+                      </Badge>
+                    )}
                     <Badge variant={listing.status === "ACTIVE" ? "default" : "secondary"} className="text-xs">
                       {listing.status}
                     </Badge>

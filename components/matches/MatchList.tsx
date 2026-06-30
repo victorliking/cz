@@ -34,9 +34,20 @@ type ScoredMatch = Omit<MatchResult, "listing"> & {
   rankBoost?: RankBoost
 }
 
-export function MatchList() {
+// Optional props let a parent override what the component would otherwise read
+// from GET /api/matches. All default to undefined so existing callers that
+// render <MatchList /> with no props keep working unchanged.
+interface MatchListProps {
+  relaxed?: boolean
+  relaxedReason?: string | null
+}
+
+export function MatchList({ relaxed: relaxedProp, relaxedReason: relaxedReasonProp }: MatchListProps = {}) {
   const [matches, setMatches] = useState<ScoredMatch[]>([])
   const [learning, setLearning] = useState<LearningSummary | null>(null)
+  const [relaxed, setRelaxed] = useState(false)
+  const [relaxedReason, setRelaxedReason] = useState<string | null>(null)
+  const [intakeComplete, setIntakeComplete] = useState(true)
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
 
@@ -46,17 +57,39 @@ export function MatchList() {
       .then((d) => {
         setMatches(d.matches || [])
         setLearning(d.learning ?? null)
+        setRelaxed(!!d.relaxed)
+        setRelaxedReason(d.relaxedReason ?? null)
+        // The API omits relaxed/learning/totalConsidered when intake isn't done
+        // (it returns just { matches: [] }). Use the presence of those fields to
+        // tell "no inventory in your criteria" apart from "intake not done".
+        setIntakeComplete("relaxed" in d || "totalConsidered" in d || "learning" in d)
         setLoading(false)
       })
       .catch(() => setLoading(false))
   }, [])
 
+  // Props win when provided, otherwise fall back to the fetched payload.
+  const showRelaxed = relaxedProp ?? relaxed
+  const shownReason = relaxedReasonProp ?? relaxedReason
+
   if (loading) return <div className="animate-pulse h-48 bg-slate-50 rounded-xl" />
   if (matches.length === 0) {
+    // Honest empty state: only prompt the questionnaire when it isn't done yet.
+    if (!intakeComplete) {
+      return (
+        <div className="border border-dashed rounded-xl p-8 text-center">
+          <p className="text-sm text-slate-400">No matches yet.</p>
+          <p className="text-xs text-slate-300 mt-1">Complete your intake questionnaire to see personalized matches.</p>
+        </div>
+      )
+    }
     return (
       <div className="border border-dashed rounded-xl p-8 text-center">
-        <p className="text-sm text-slate-400">No matches yet.</p>
-        <p className="text-xs text-slate-300 mt-1">Complete your intake questionnaire to see personalized matches.</p>
+        <p className="text-sm text-slate-400">No homes match your criteria right now.</p>
+        <p className="text-xs text-slate-300 mt-1">
+          There&rsquo;s no current inventory in your price range and area. We&rsquo;ll keep looking as new
+          listings come on the market — or adjust your budget or target areas to widen the search.
+        </p>
       </div>
     )
   }
@@ -65,6 +98,10 @@ export function MatchList() {
     <div className="space-y-4">
       {/* Learning banner — only when the system actually re-ranked from showings */}
       <LearningBanner learning={learning} />
+
+      {/* Relaxed-search notice — honest disclosure when the API widened the
+          filters (budget/area) to surface enough matches. */}
+      {showRelaxed && <RelaxedNotice reason={shownReason} />}
 
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-slate-900">Your Top Matches</h2>
@@ -80,6 +117,21 @@ export function MatchList() {
             onToggle={() => setExpanded(expanded === match.listing.id ? null : match.listing.id)}
           />
         ))}
+      </div>
+    </div>
+  )
+}
+
+function RelaxedNotice({ reason }: { reason: string | null }) {
+  return (
+    <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
+      <div className="flex items-start gap-2.5">
+        <span className="mt-0.5 shrink-0 text-amber-500" aria-hidden>&#9888;</span>
+        <p className="text-xs text-amber-800 leading-snug">
+          <span className="font-semibold">Search widened to find more options. </span>
+          {reason || "We expanded your budget or area to surface more matches."} Some homes below may fall
+          outside your original criteria.
+        </p>
       </div>
     </div>
   )
@@ -409,6 +461,10 @@ function SchoolBadge({ rating }: { rating: number }) {
 }
 
 function DimensionBreakdown({ scores }: { scores: DimensionScore[] }) {
+  // Older API payloads may not carry `assessed`; default to true so they render
+  // exactly as before. New payloads flag dimensions the listing had no data for.
+  const isAssessed = (ds: DimensionScore) => ds.assessed !== false
+
   return (
     <div>
       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Score Breakdown (Your Priorities)</p>
@@ -418,32 +474,47 @@ function DimensionBreakdown({ scores }: { scores: DimensionScore[] }) {
             <span className="text-xs text-slate-600 w-16 shrink-0 truncate" title={ds.dimension}>
               {ds.label}
             </span>
-            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div
-                className={cn(
-                  "h-full rounded-full transition-all",
-                  ds.score >= 70 ? "bg-green-500" :
-                  ds.score >= 50 ? "bg-blue-400" :
-                  ds.score >= 30 ? "bg-amber-400" : "bg-red-400"
-                )}
-                style={{ width: `${ds.score}%` }}
-              />
-            </div>
-            <span className={cn(
-              "text-xs font-bold w-8 text-right",
-              ds.score >= 70 ? "text-green-600" :
-              ds.score >= 50 ? "text-blue-600" :
-              ds.score >= 30 ? "text-amber-600" : "text-red-500"
-            )}>
-              {ds.score}
-            </span>
+            {isAssessed(ds) ? (
+              <>
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all",
+                      ds.score >= 70 ? "bg-green-500" :
+                      ds.score >= 50 ? "bg-blue-400" :
+                      ds.score >= 30 ? "bg-amber-400" : "bg-red-400"
+                    )}
+                    style={{ width: `${ds.score}%` }}
+                  />
+                </div>
+                <span className={cn(
+                  "text-xs font-bold w-8 text-right",
+                  ds.score >= 70 ? "text-green-600" :
+                  ds.score >= 50 ? "text-blue-600" :
+                  ds.score >= 30 ? "text-amber-600" : "text-red-500"
+                )}>
+                  {ds.score}
+                </span>
+              </>
+            ) : (
+              <>
+                {/* No data for this dimension — show an empty track and say so
+                    rather than implying a real (often midpoint) score. */}
+                <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden" />
+                <span className="text-xs italic text-slate-400 w-8 text-right" title="Not yet assessed">
+                  &mdash;
+                </span>
+              </>
+            )}
             <span className="text-xs text-slate-300 w-8 text-right">
               {Math.round(ds.weight * 100)}%
             </span>
           </div>
         ))}
       </div>
-      <p className="text-xs text-slate-300 mt-1.5">Score per dimension · Right column = your priority weight</p>
+      <p className="text-xs text-slate-300 mt-1.5">
+        Score per dimension · &ldquo;&mdash;&rdquo; = not yet assessed · Right column = your priority weight
+      </p>
     </div>
   )
 }

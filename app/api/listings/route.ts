@@ -87,14 +87,23 @@ export async function GET(request: NextRequest) {
   const status = searchParams.get("status")
   const search = searchParams.get("search")
 
+  // Show the agent's own inventory plus the shared MLS inventory owned by any
+  // AGENT-role/system user. The buyer match engine already draws from all of
+  // these, so the Listings page should surface the same working set.
   const listings = await prisma.listing.findMany({
     where: {
-      agentId: userId,
+      OR: [{ agentId: userId }, { agent: { role: "AGENT" } }],
       ...(status ? { status: status as any } : {}),
       ...(search ? { address: { contains: search, mode: "insensitive" } } : {}),
     },
     orderBy: { createdAt: "desc" },
   })
 
-  return NextResponse.json({ listings })
+  // Mark which listings the agent owns vs. shared MLS inventory.
+  const withOwnership = listings.map((listing) => ({
+    ...listing,
+    mine: listing.agentId === userId,
+  }))
+
+  return NextResponse.json({ listings: withOwnership })
 }

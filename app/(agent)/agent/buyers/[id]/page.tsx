@@ -139,23 +139,31 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
       <section className="mb-8">
         <h2 className="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-3">Priority Weights</h2>
         <div className="space-y-2">
-          {portrait.priorities.map((p, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <span className="text-xs font-bold text-slate-400 w-4">#{p.rank}</span>
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-700">{p.item}</span>
-                  <span className="text-xs text-slate-400">{Math.round(p.weight * 100)}%</span>
+          {(() => {
+            // Normalize bar widths against the largest weight so the top priority
+            // fills the bar and the rest scale proportionally (capped at 100%).
+            const maxWeight = Math.max(...portrait.priorities.map((p) => p.weight), 0)
+            return portrait.priorities.map((p, i) => {
+              const barWidth = maxWeight > 0 ? Math.min(100, (p.weight / maxWeight) * 100) : 0
+              return (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-slate-400 w-4">#{p.rank}</span>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-700">{p.item}</span>
+                      <span className="text-xs text-slate-400">{Math.round(p.weight * 100)}%</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-100 rounded-full mt-1">
+                      <div
+                        className="h-1.5 bg-blue-500 rounded-full"
+                        style={{ width: `${barWidth}%` }}
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div className="h-1.5 bg-slate-100 rounded-full mt-1">
-                  <div 
-                    className="h-1.5 bg-blue-500 rounded-full" 
-                    style={{ width: `${p.weight * 400}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
+              )
+            })
+          })()}
         </div>
       </section>
 

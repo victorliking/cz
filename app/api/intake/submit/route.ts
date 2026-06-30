@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
   await prisma.buyerProfile.update({
     where: { id: buyerProfileId },
     data: {
+      intakeCompletedAt: new Date(),
       ...(budget ? { budgetMin: budget[0], budgetMax: budget[1] } : {}),
       ...(bedroomsMin ? { minBedrooms: parseInt(bedroomsMin) || 1 } : {}),
       ...(bathroomsMin ? { minBathrooms: parseFloat(bathroomsMin) || 1 } : {}),

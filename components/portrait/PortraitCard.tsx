@@ -6,6 +6,7 @@ import type { BuyerPortrait } from "@/lib/portrait/generate-portrait"
 import { ARCHETYPES } from "@/lib/portrait/generate-portrait"
 import { useI18n } from "@/lib/i18n/context"
 import { PreferenceEvolution } from "@/components/feedback/PreferenceEvolution"
+import { ShowingFeedbackForm } from "@/components/feedback/ShowingFeedbackForm"
 import { STYLE_EXAMPLES } from "@/lib/data/style-examples"
 
 type Tab = "profile" | "criteria" | "evolution" | "log"
@@ -133,7 +134,27 @@ function HomeProfile({ portrait }: { portrait: BuyerPortrait }) {
         <p className="text-sm text-slate-700 leading-relaxed">{portrait.searchStrategy}</p>
       </section>
 
-      {/* Personal Note (AI-generated) */}
+      {/* Decision points — surfaced contradictions & hidden needs from the
+          portrait generator. Always available (deterministic), so the profile
+          feels complete even when the AI narrative below is absent. */}
+      {portrait.blindSpots?.length > 0 && (
+        <section className="pt-4 border-t">
+          <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-1">Decision points to consider</p>
+          <p className="text-xs text-slate-400 mb-3">Worth thinking through before you commit — these are where buyers like you tend to get tripped up.</p>
+          <div className="space-y-2.5">
+            {portrait.blindSpots.map((spot, i) => (
+              <div key={i} className="flex items-start gap-2.5 rounded-lg bg-amber-50 border border-amber-100 p-3">
+                <span className="mt-0.5 shrink-0 text-amber-500 text-sm leading-none" aria-hidden>&#9888;</span>
+                <p className="text-sm text-slate-700 leading-relaxed">{spot}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* A note for you — only present when an AI narrative was generated.
+          When it's absent (deterministic fallback) we simply omit this rather
+          than leave an empty gap; the Decision points above carry the insight. */}
       {(portrait as any).personalNote && (
         <section className="pt-4 border-t">
           <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">A Note For You</p>
@@ -263,8 +284,6 @@ interface FeedbackEntry {
 function EvolutionLog() {
   const [entries, setEntries] = useState<FeedbackEntry[]>([])
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ address: "", liked: "", disliked: "", verdict: "neutral", notes: "", adjustments: "" })
-  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     fetch("/api/feedback")
@@ -272,18 +291,6 @@ function EvolutionLog() {
       .then((d) => setEntries(d.entries || []))
       .catch(() => {})
   }, [])
-
-  const handleSubmit = async () => {
-    setSaving(true)
-    const res = await fetch("/api/feedback", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) })
-    const data = await res.json()
-    if (data.entry) {
-      setEntries((prev) => [data.entry, ...prev])
-      setForm({ address: "", liked: "", disliked: "", verdict: "neutral", notes: "", adjustments: "" })
-      setShowForm(false)
-    }
-    setSaving(false)
-  }
 
   const verdictLabels: Record<string, string> = { love: "Loved it", like: "Interested", neutral: "Neutral", dislike: "Not for us" }
 
@@ -300,57 +307,18 @@ function EvolutionLog() {
           </button>
         </div>
 
-        {/* Feedback form */}
+        {/* Guided chip-based feedback form — picking chips gives the learner
+            parseable signals (the old free-text rarely parsed). */}
         {showForm && (
-          <div className="border rounded-lg p-4 space-y-3 mb-4 bg-slate-50">
-            <input
-              value={form.address}
-              onChange={(e) => setForm({ ...form, address: e.target.value })}
-              placeholder="Address (e.g., 123 Main St, Arlington)"
-              className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm"
+          <div className="mb-4">
+            <ShowingFeedbackForm
+              onSubmitted={(data) => {
+                if (data.entry) {
+                  setEntries((prev) => [data.entry, ...prev])
+                }
+                setShowForm(false)
+              }}
             />
-            <div className="flex gap-2">
-              {(["love", "like", "neutral", "dislike"] as const).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setForm({ ...form, verdict: v })}
-                  className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
-                    form.verdict === v ? "bg-blue-500 text-white border-blue-500" : "bg-white text-slate-600 border-slate-200"
-                  )}
-                >
-                  {verdictLabels[v]}
-                </button>
-              ))}
-            </div>
-            <textarea
-              value={form.liked}
-              onChange={(e) => setForm({ ...form, liked: e.target.value })}
-              placeholder="What did you like?"
-              rows={2}
-              className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm resize-none"
-            />
-            <textarea
-              value={form.disliked}
-              onChange={(e) => setForm({ ...form, disliked: e.target.value })}
-              placeholder="What didn't work?"
-              rows={2}
-              className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm resize-none"
-            />
-            <textarea
-              value={form.adjustments}
-              onChange={(e) => setForm({ ...form, adjustments: e.target.value })}
-              placeholder="Should we adjust search criteria? (e.g., 'Need higher ceilings')"
-              rows={2}
-              className="w-full px-3 py-2 rounded-md border border-slate-200 text-sm resize-none"
-            />
-            <button
-              onClick={handleSubmit}
-              disabled={saving || !form.address}
-              className="w-full py-2 bg-blue-500 text-white text-sm font-medium rounded-md hover:bg-blue-600 disabled:opacity-50"
-            >
-              {saving ? "Saving..." : "Save Feedback"}
-            </button>
           </div>
         )}
 

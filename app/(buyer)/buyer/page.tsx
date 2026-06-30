@@ -5,6 +5,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { PortraitCard } from "@/components/portrait/PortraitCard"
 import { MatchList } from "@/components/matches/MatchList"
+import { BuyerLogShowing } from "@/components/feedback/ShowingFeedbackForm"
 import { SignOutButton } from "@/components/auth/SignOutButton"
 
 export const dynamic = "force-dynamic"
@@ -77,7 +78,7 @@ export default async function BuyerDashboard() {
                   <div className="w-9 h-9 rounded-xl bg-[#f5f5f7] flex items-center justify-center text-[#86868b] text-sm font-semibold shrink-0 mt-0.5">2</div>
                   <div>
                     <p className="font-medium text-[#86868b]">Get your buyer portrait</p>
-                    <p className="text-sm text-[#86868b]/60 mt-0.5">AI-generated insights about your priorities.</p>
+                    <p className="text-sm text-[#86868b]/60 mt-0.5">A clear read on your priorities and trade-offs.</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
@@ -112,7 +113,13 @@ export default async function BuyerDashboard() {
 
             {/* Matches section */}
             <section className="space-y-4">
-              <h2 className="text-xl font-semibold text-[#1d1d1f] tracking-tight">Your Matches</h2>
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold text-[#1d1d1f] tracking-tight">Your Matches</h2>
+                <span className="text-xs text-[#86868b]">Seen one in person? Tell us how it felt.</span>
+              </div>
+              {/* Feed the learning loop: a guided, chip-based showing log tied to
+                  a real listing so its dimension scores reach the matcher. */}
+              <BuyerLogShowing />
               <MatchList />
             </section>
           </>

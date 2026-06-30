@@ -95,6 +95,10 @@ interface ListingFormProps {
   mode?: "create" | "edit"
 }
 
+// localStorage key for the in-progress draft. Only used in create mode, where
+// losing typed-in data to a refresh is most painful.
+const DRAFT_STORAGE_KEY = "homematch:listing-draft"
+
 export function ListingForm({ initialData, onSubmit, mode = "create" }: ListingFormProps) {
   const [step, setStep] = useState(0)
   const [data, setData] = useState<ListingFormData>({
@@ -105,14 +109,38 @@ export function ListingForm({ initialData, onSubmit, mode = "create" }: ListingF
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Auto-save with 800ms debounce
-  const autoSave = useCallback(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(async () => {
-      // In a real implementation, this would save draft to API
+  // Restore any saved draft on mount (create mode only).
+  useEffect(() => {
+    if (mode !== "create") return
+    try {
+      const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY)
+      if (!raw) return
+      const saved = JSON.parse(raw) as ListingFormData
+      setData({ ...initialFormData, ...initialData, ...saved })
       setLastSaved(new Date())
-    }, 800)
-  }, [])
+    } catch {
+      // Corrupt draft — ignore and start fresh.
+    }
+    // Only run on mount; initialData is stable for create mode.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode])
+
+  // Persist the draft to localStorage with an 800ms debounce.
+  const autoSave = useCallback(
+    (next: ListingFormData) => {
+      if (mode !== "create") return
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(() => {
+        try {
+          window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(next))
+          setLastSaved(new Date())
+        } catch {
+          // Storage unavailable (private mode/quota) — fail silently.
+        }
+      }, 800)
+    },
+    [mode]
+  )
 
   useEffect(() => {
     return () => {
@@ -121,16 +149,15 @@ export function ListingForm({ initialData, onSubmit, mode = "create" }: ListingF
   }, [])
 
   const updateField = (field: keyof ListingFormData, value: unknown) => {
-    setData((prev) => ({ ...prev, [field]: value }))
-    autoSave()
+    const next = { ...data, [field]: value }
+    setData(next)
+    autoSave(next)
   }
 
   const updateVector = (key: string, value: unknown) => {
-    setData((prev) => ({
-      ...prev,
-      vector: { ...prev.vector, [key]: value },
-    }))
-    autoSave()
+    const next = { ...data, vector: { ...data.vector, [key]: value } }
+    setData(next)
+    autoSave(next)
   }
 
   // Calculate completeness per step
@@ -153,6 +180,15 @@ export function ListingForm({ initialData, onSubmit, mode = "create" }: ListingF
     setSaving(true)
     try {
       await onSubmit(data)
+      // Submitted successfully — clear the persisted draft.
+      if (mode === "create") {
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+        try {
+          window.localStorage.removeItem(DRAFT_STORAGE_KEY)
+        } catch {
+          // ignore
+        }
+      }
     } finally {
       setSaving(false)
     }

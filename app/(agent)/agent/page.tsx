@@ -13,7 +13,16 @@ export default async function AgentDashboard() {
   if (!userId) return <p>Not authenticated</p>
 
   const [listings, activeBuyers, insights] = await Promise.all([
-    prisma.listing.count({ where: { agentId: userId } }),
+    // Count the SAME working set the /agent/listings page shows: the agent's own
+    // inventory plus shared MLS inventory owned by any AGENT-role user. Counting
+    // only `agentId: userId` here would show "0" on the dashboard while the
+    // listings page (one click away) shows hundreds — a confusing mismatch.
+    prisma.listing.count({
+      where: {
+        status: "ACTIVE",
+        OR: [{ agentId: userId }, { agent: { role: "AGENT" } }],
+      },
+    }),
     prisma.buyerProfile.count({ where: { agentId: userId, status: "ACTIVE" } }),
     prisma.insightLog.count({
       where: { dismissedAt: null, buyerProfile: { agentId: userId } },
