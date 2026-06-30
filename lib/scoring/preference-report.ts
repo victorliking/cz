@@ -75,7 +75,7 @@ export function generatePreferenceReport(state: PreferenceState): PreferenceRepo
   const summary = generateSummary(evolutions, state.evidenceCount, driftLabel)
 
   // Generate verification questions
-  const verificationQuestions = generateVerificationQuestions(evolutions)
+  const verificationQuestions = generateVerificationQuestions(evolutions, state)
 
   // Current weights sorted by weight (rank)
   const sorted = [...state.current].sort((a, b) => b.weight - a.weight)
@@ -232,8 +232,20 @@ function generateSummary(
   return summary
 }
 
-function generateVerificationQuestions(evolutions: PreferenceEvolution[]): string[] {
+function generateVerificationQuestions(
+  evolutions: PreferenceEvolution[],
+  state: PreferenceState
+): string[] {
   const questions: string[] = []
+
+  // The buyer's stated (intake) ranking, derived from the ordered prior weights.
+  // priorWeight is a normalized weight, not a rank — so reverse-engineering a
+  // rank arithmetically (e.g. weight * 100 / 25) produces #0/#1 nonsense.
+  // Instead we sort the prior dimensions by weight and use index + 1.
+  const priorRanks = new Map<string, number>()
+  ;[...state.prior]
+    .sort((a, b) => b.weight - a.weight)
+    .forEach((p, i) => priorRanks.set(p.dimension, i + 1))
 
   for (const evo of evolutions.slice(0, 3)) {
     if (evo.direction === "increased") {
@@ -241,8 +253,10 @@ function generateVerificationQuestions(evolutions: PreferenceEvolution[]): strin
         `We noticed ${evo.dimension.toLowerCase()} seems more important to you than initially stated. On a scale of 1-10, how critical is this to your final decision?`
       )
     } else {
+      const intakeRank = priorRanks.get(evo.dimension)
+      const rankPhrase = intakeRank ? ` at #${intakeRank}` : ""
       questions.push(
-        `You ranked "${evo.dimension}" at #${Math.round(evo.priorWeight * 100 / 25)} initially, but your reactions suggest it's less decisive. Would you like to adjust its priority, or keep it where it was?`
+        `You ranked "${evo.dimension}"${rankPhrase} initially, but your reactions suggest it's less decisive. Would you like to adjust its priority, or keep it where it was?`
       )
     }
   }

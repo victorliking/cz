@@ -139,13 +139,30 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Attach display fields the buyer UI needs (full photo gallery + the real
+  // external listing link) by joining back to the original DB rows by id.
+  // match-engine's ListingForMatch only carries imageUrl, so we enrich here at
+  // response-build time rather than widening the engine type.
+  const dbById = new Map(dbListings.map((l) => [l.id, l]))
+  const responseMatches = rankedMatches.slice(0, 20).map((m) => {
+    const dbListing = dbById.get(m.listing.id)
+    return {
+      ...m,
+      listing: {
+        ...m.listing,
+        photos: dbListing?.photos ?? [],
+        listingUrl: dbListing?.listingUrl ?? null,
+      },
+    }
+  })
+
   // Return top 20 matches
   return NextResponse.json({
-    matches: rankedMatches.slice(0, 20),
+    matches: responseMatches,
     totalConsidered: dbListings.length,
     totalMatched: matches.length,
     relaxed,
-    relaxedReason,
+    relaxedReason: relaxedReason ?? null,
     learning,
   })
 }
@@ -182,6 +199,27 @@ function buildShifts(
 }
 
 /**
+ * Map internal dimension labels (from the intake ranking) to friendly,
+ * buyer-facing phrases that read naturally inside a sentence. Unmapped
+ * dimensions gracefully fall back to their lowercased label.
+ */
+const DIMENSION_PHRASES: Record<string, string> = {
+  "Location & commute": "the location and commute",
+  "Space & square footage": "the extra space",
+  "Schools & family-friendliness": "great schools",
+  "Outdoor space & yard": "outdoor space",
+  "Kitchen & entertaining": "the kitchen",
+  "Natural light & views": "natural light",
+  "Finishes & move-in ready": "move-in-ready finishes",
+  "Privacy & quiet": "peace and quiet",
+}
+
+/** Friendly buyer-facing phrase for a dimension label (graceful fallback). */
+function phraseForDimension(dimension: string): string {
+  return DIMENSION_PHRASES[dimension] ?? dimension.toLowerCase()
+}
+
+/**
  * Build a plain-language reason a listing climbed: name the rising dimension(s)
  * the listing actually scores well on. Falls back to the strongest rising
  * dimension if none align, then null if the buyer has no rising dimensions.
@@ -199,7 +237,7 @@ function buildRankBoostReason(
   })
 
   const drivers = (strongOnListing.length > 0 ? strongOnListing : risingDimensions).slice(0, 2)
-  const phrases = drivers.map((d) => d.dimension.toLowerCase())
+  const phrases = drivers.map((d) => phraseForDimension(d.dimension))
 
   if (phrases.length === 0) return null
   const list = phrases.length === 1 ? phrases[0] : `${phrases[0]} and ${phrases[1]}`

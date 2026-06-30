@@ -21,8 +21,18 @@ interface RankBoost {
   movedUp?: number
   reason?: string
 }
-// MatchResult may carry an optional rankBoost the engine type doesn't yet declare.
-type ScoredMatch = MatchResult & { rankBoost?: RankBoost }
+// The matches API enriches each listing with the full photo array and the real
+// MLS listing URL (see agent D's contract). Both treated as optional.
+type EnrichedListing = MatchResult["listing"] & {
+  photos?: string[]
+  listingUrl?: string | null
+}
+// MatchResult may carry an optional rankBoost the engine type doesn't yet declare,
+// plus the photos/listingUrl enrichment on the listing object.
+type ScoredMatch = Omit<MatchResult, "listing"> & {
+  listing: EnrichedListing
+  rankBoost?: RankBoost
+}
 
 export function MatchList() {
   const [matches, setMatches] = useState<ScoredMatch[]>([])
@@ -137,14 +147,47 @@ function MatchExplanationCard({
     return `$${Math.round(price / 1000)}k`
   }
 
+  const heroPhoto = match.listing.photos?.find(Boolean) ?? match.listing.imageUrl
+
   return (
     <div
       className={cn(
-        "border rounded-xl transition-all cursor-pointer hover:shadow-md",
+        "border rounded-xl transition-all cursor-pointer hover:shadow-md overflow-hidden",
         isExpanded ? "ring-2 ring-blue-200 shadow-md" : ""
       )}
       onClick={onToggle}
     >
+      {/* Hero photo (graceful placeholder when no photos) */}
+      <div className="bg-slate-100 aspect-[16/9] w-full">
+        {heroPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={heroPhoto}
+            alt={match.listing.address}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+              className="w-8 h-8 mb-1"
+              aria-hidden
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
+              />
+            </svg>
+            <span className="text-xs">No photos available</span>
+          </div>
+        )}
+      </div>
+
       {/* Card header */}
       <div className="p-4">
         <div className="flex items-start justify-between gap-3">
@@ -257,34 +300,38 @@ function MatchExplanationCard({
             <DimensionBreakdown scores={match.dimensionScores} />
           )}
 
-          {/* Agent notes */}
+          {/* Listing description (MLS remarks) */}
           {match.listing.description && (
             <div>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Agent Notes</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Listing Description</p>
               <p className="text-xs text-slate-600 leading-relaxed">{match.listing.description}</p>
             </div>
           )}
 
-          {/* External links */}
+          {/* External links — use the real MLS listing URL when available;
+              only fall back to a (clearly labeled) Redfin search otherwise. */}
           <div className="flex gap-3 pt-1">
-            <a
-              href={`https://www.redfin.com/MA/${match.listing.city.replace(/\s+/g, '-')}/${match.listing.address.replace(/\s+/g, '-')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-xs font-medium text-[#007AFF] hover:text-[#0056b3] transition-all"
-            >
-              View on Redfin
-            </a>
-            <a
-              href={`https://www.zillow.com/homes/${encodeURIComponent(match.listing.address + ', ' + match.listing.city + ', MA')}_rb/`}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="text-xs font-medium text-[#007AFF] hover:text-[#0056b3] transition-all"
-            >
-              View on Zillow
-            </a>
+            {match.listing.listingUrl ? (
+              <a
+                href={match.listing.listingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs font-medium text-[#007AFF] hover:text-[#0056b3] transition-all"
+              >
+                View listing
+              </a>
+            ) : (
+              <a
+                href={`https://www.redfin.com/MA/${match.listing.city.replace(/\s+/g, '-')}/${match.listing.address.replace(/\s+/g, '-')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="text-xs font-medium text-[#007AFF] hover:text-[#0056b3] transition-all"
+              >
+                Search on Redfin
+              </a>
+            )}
             <a
               href={`https://www.google.com/maps/search/${encodeURIComponent(match.listing.address + ', ' + match.listing.city + ', MA')}`}
               target="_blank"

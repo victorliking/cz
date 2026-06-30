@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/lib/auth-options"
+import { getServerUserId } from "@/lib/auth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,14 +7,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 export const dynamic = "force-dynamic"
 
 export default async function AgentDashboard() {
-  const session = await getServerSession(authOptions)
-  const userId = session?.user?.id
+  // Canonical id — matches getApiUser().id used by the buyers/listings list APIs.
+  const userId = await getServerUserId()
 
   if (!userId) return <p>Not authenticated</p>
 
-  const [listings, buyers] = await Promise.all([
+  const [listings, activeBuyers, insights] = await Promise.all([
     prisma.listing.count({ where: { agentId: userId } }),
-    prisma.buyerProfile.count({ where: { agentId: userId } }),
+    prisma.buyerProfile.count({ where: { agentId: userId, status: "ACTIVE" } }),
+    prisma.insightLog.count({
+      where: { dismissedAt: null, buyerProfile: { agentId: userId } },
+    }),
   ])
 
   return (
@@ -40,7 +42,7 @@ export default async function AgentDashboard() {
             <CardTitle className="text-sm font-normal text-[#86868b]">Active Buyers</CardTitle>
           </CardHeader>
           <CardContent className="px-8 pb-8">
-            <p className="text-4xl font-semibold text-[#1d1d1f] tracking-tight">{buyers}</p>
+            <p className="text-4xl font-semibold text-[#1d1d1f] tracking-tight">{activeBuyers}</p>
             <p className="text-sm text-[#86868b] mt-1">Currently searching</p>
           </CardContent>
         </Card>
@@ -49,7 +51,7 @@ export default async function AgentDashboard() {
             <CardTitle className="text-sm font-normal text-[#86868b]">Insights</CardTitle>
           </CardHeader>
           <CardContent className="px-8 pb-8">
-            <p className="text-4xl font-semibold text-[#1d1d1f] tracking-tight">0</p>
+            <p className="text-4xl font-semibold text-[#1d1d1f] tracking-tight">{insights}</p>
             <p className="text-sm text-[#86868b] mt-1">Pending review</p>
           </CardContent>
         </Card>

@@ -154,6 +154,12 @@ export async function POST(request: NextRequest) {
 
     let resolvedListingId = listingId
     if (!resolvedListingId && customAddress) {
+      // Ad-hoc address typed during an observation (no MLS data). We still need
+      // a Listing row to anchor the Showing/Observation, but it must NOT pollute
+      // the agent's active inventory or the ACTIVE match pool. Create it as
+      // WITHDRAWN (excluded from ACTIVE queries) and tag the vector with
+      // _adHocObservation so it's identifiable as observation-only scaffolding
+      // rather than a real $0 listing.
       const newListing = await prisma.listing.create({
         data: {
           agentId: apiUser.id,
@@ -165,7 +171,8 @@ export async function POST(request: NextRequest) {
           propertyType: "SFH",
           bedrooms: 0,
           bathroomsFull: 0,
-          vector: {},
+          status: "WITHDRAWN",
+          vector: { _adHocObservation: true },
         },
       })
       resolvedListingId = newListing.id

@@ -1,5 +1,4 @@
 import Link from "next/link"
-import { cookies } from "next/headers"
 
 export default function AgentLayout({
   children,
@@ -23,6 +22,9 @@ export default function AgentLayout({
         <nav className="flex-1 px-4 space-y-1">
           <NavLink href="/agent">
             Dashboard
+          </NavLink>
+          <NavLink href="/agent/buyers">
+            Buyers
           </NavLink>
           <NavLink href="/agent/listings">
             Listings

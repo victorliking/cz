@@ -65,7 +65,8 @@ export function ObservationForm() {
     fetch("/api/listings")
       .then((r) => r.json())
       .then((data) => {
-        if (data.listings) setListings(data.listings)
+        // Tolerant of both the new { listings } envelope and a bare array.
+        setListings(Array.isArray(data) ? data : (data.listings ?? []))
       })
       .catch(() => {})
   }, [])

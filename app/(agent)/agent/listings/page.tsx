@@ -47,14 +47,44 @@ export default async function ListingsPage() {
               href={`/agent/listings/${listing.id}`}
               className="block bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md hover:border-slate-300 transition-all"
             >
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-semibold text-slate-900">{listing.address}</p>
-                  <p className="text-sm text-slate-500 mt-0.5">
-                    {listing.city}, {listing.state} {listing.zipCode}
-                  </p>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4 min-w-0">
+                  <div className="shrink-0 w-24 h-16 rounded-lg overflow-hidden border border-slate-200 bg-slate-100">
+                    {listing.photos?.[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={listing.photos[0]}
+                        alt={listing.address}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-slate-300">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={1.5}
+                          stroke="currentColor"
+                          className="w-6 h-6"
+                          aria-hidden
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"
+                          />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900 truncate">{listing.address}</p>
+                    <p className="text-sm text-slate-500 mt-0.5 truncate">
+                      {listing.city}, {listing.state} {listing.zipCode}
+                    </p>
+                  </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <p className="font-semibold text-slate-900 text-lg">${listing.listPrice.toLocaleString()}</p>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-sm text-slate-500">
