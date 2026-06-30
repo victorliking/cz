@@ -3,8 +3,20 @@ import { getServerUserId } from "@/lib/auth"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { SyncNowButton } from "./SyncNowButton"
 
 export const dynamic = "force-dynamic"
+
+function timeAgo(date: Date | null): string {
+  if (!date) return "never"
+  const ms = Date.now() - date.getTime()
+  const days = Math.floor(ms / 86_400_000)
+  if (days >= 1) return `${days} day${days === 1 ? "" : "s"} ago`
+  const hours = Math.floor(ms / 3_600_000)
+  if (hours >= 1) return `${hours} hour${hours === 1 ? "" : "s"} ago`
+  const mins = Math.floor(ms / 60_000)
+  return `${mins} minute${mins === 1 ? "" : "s"} ago`
+}
 
 export default async function AgentDashboard() {
   // Canonical id — matches getApiUser().id used by the buyers/listings list APIs.
@@ -12,7 +24,7 @@ export default async function AgentDashboard() {
 
   if (!userId) return <p>Not authenticated</p>
 
-  const [listings, activeBuyers, insights] = await Promise.all([
+  const [listings, activeBuyers, insights, freshest] = await Promise.all([
     // Count the SAME working set the /agent/listings page shows: the agent's own
     // inventory plus shared MLS inventory owned by any AGENT-role user. Counting
     // only `agentId: userId` here would show "0" on the dashboard while the
@@ -27,7 +39,19 @@ export default async function AgentDashboard() {
     prisma.insightLog.count({
       where: { dismissedAt: null, buyerProfile: { agentId: userId } },
     }),
+    // Most recently updated ACTIVE listing → how fresh the MLS data is.
+    prisma.listing.findFirst({
+      where: { status: "ACTIVE" },
+      orderBy: { updatedAt: "desc" },
+      select: { updatedAt: true },
+    }),
   ])
+
+  const lastUpdated = freshest?.updatedAt ?? null
+  const staleDays = lastUpdated
+    ? Math.floor((Date.now() - lastUpdated.getTime()) / 86_400_000)
+    : null
+  const isStale = staleDays === null || staleDays >= 2
 
   return (
     <div className="p-10 max-w-4xl">
@@ -65,6 +89,27 @@ export default async function AgentDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* MLS data freshness + on-demand sync */}
+      <Card className="shadow-sm border-0 bg-white rounded-2xl mb-10">
+        <CardContent className="px-8 py-6 flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-sm font-medium text-[#1d1d1f]">MLS listing data</p>
+            <p className="text-sm text-[#86868b] mt-1">
+              {listings.toLocaleString()} active listings · last updated{" "}
+              <span className={isStale ? "text-amber-600 font-medium" : "text-[#1d1d1f]"}>
+                {timeAgo(lastUpdated)}
+              </span>
+              {isStale && (
+                <span className="ml-2 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                  may be stale
+                </span>
+              )}
+            </p>
+          </div>
+          <SyncNowButton />
+        </CardContent>
+      </Card>
 
       <div className="flex gap-4">
         <Link href="/agent/buyers">

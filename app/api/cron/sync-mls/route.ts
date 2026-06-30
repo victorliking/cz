@@ -118,6 +118,7 @@ export async function GET(request: NextRequest) {
       errors: [] as string[],
       filesProcessed: [] as string[],
       durationMs: 0,
+      staleNote: undefined as string | undefined,
     }
 
     // Track which MLS numbers we saw in today's import (for stale detection)
@@ -182,10 +183,19 @@ export async function GET(request: NextRequest) {
       if (Date.now() - startTime > 250_000) break
     }
 
-    // Mark stale listings as WITHDRAWN
-    if (seenMlsNumbers.size > 0) {
-      const withdrawnCount = await markStaleListingsWithdrawn(seenMlsNumbers)
-      summary.withdrawn = withdrawnCount
+    // Mark stale listings as WITHDRAWN — but ONLY when this run pulled a
+    // believable number of records. A failed or partial MLS download would
+    // otherwise withdraw most of the live inventory (everything not in the
+    // tiny/empty set). The floor + the ?withdraw=0 test flag make this safe to
+    // run on demand and resilient to a flaky download leg.
+    const withdrawDisabled = request.nextUrl.searchParams.get('withdraw') === '0'
+    const STALE_WITHDRAW_FLOOR = 50
+    if (withdrawDisabled) {
+      summary.staleNote = 'Stale-withdraw skipped (withdraw=0 test mode).'
+    } else if (seenMlsNumbers.size < STALE_WITHDRAW_FLOOR) {
+      summary.staleNote = `Stale-withdraw skipped: only ${seenMlsNumbers.size} listings synced (floor ${STALE_WITHDRAW_FLOOR}) — likely a partial/failed download, not withdrawing inventory.`
+    } else {
+      summary.withdrawn = await markStaleListingsWithdrawn(seenMlsNumbers)
     }
 
     summary.durationMs = Date.now() - startTime
