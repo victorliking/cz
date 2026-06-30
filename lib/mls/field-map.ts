@@ -252,8 +252,27 @@ export function buildPhotoUrls(
       `https://media.mlspin.com/photo.aspx?mls=${mlsNumber}&n=${i}&w=${w}&h=${h}`
     )
   }
-  
+
   return urls
+}
+
+/**
+ * Rewrite the w/h on a stored MLS PIN photo URL so we fetch an appropriately
+ * sized image per UI slot. Stored URLs are 1024x768 (~730KB each) — a detail
+ * page rendering a hero + 8 thumbnails at that size pulls ~6.5MB and is very
+ * slow. MLS PIN serves smaller sizes from the same endpoint (300x200 ≈ 70KB).
+ * Non-MLS or unparseable URLs are returned unchanged. Presentation-only.
+ */
+export function resizePhotoUrl(url: string, w: number, h: number): string {
+  if (!url || !url.includes("media.mlspin.com")) return url
+  try {
+    const u = new URL(url)
+    u.searchParams.set("w", String(w))
+    u.searchParams.set("h", String(h))
+    return u.toString()
+  } catch {
+    return url
+  }
 }
 
 // ============================================================

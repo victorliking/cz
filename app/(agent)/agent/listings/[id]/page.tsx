@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { DIMENSIONS, getDimension } from "@/lib/vector-schema"
 import { getSchoolRatingLabel } from "@/lib/geo/school-ratings"
+import { resizePhotoUrl } from "@/lib/mls/field-map"
 
 export const dynamic = "force-dynamic"
 
@@ -73,8 +74,9 @@ export default async function ListingDetailPage({
             <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-100 aspect-[16/9]">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={photos[0]}
+                src={resizePhotoUrl(photos[0], 800, 450)}
                 alt={`${listing.address} — primary photo`}
+                loading="lazy"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -87,8 +89,9 @@ export default async function ListingDetailPage({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={url}
+                      src={resizePhotoUrl(url, 300, 225)}
                       alt={`${listing.address} — photo ${i + 2}`}
+                      loading="lazy"
                       className="w-full h-full object-cover"
                     />
                   </div>

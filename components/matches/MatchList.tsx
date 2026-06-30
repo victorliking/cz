@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 import type { MatchResult, DimensionScore } from "@/lib/scoring/match-engine"
 import { getSchoolRatingLabel } from "@/lib/geo/school-ratings"
+import { resizePhotoUrl } from "@/lib/mls/field-map"
 
 // --- Learning surface (from GET /api/matches; all fields optional, treated defensively) ---
 interface LearningShift {
@@ -199,7 +200,9 @@ function MatchExplanationCard({
     return `$${Math.round(price / 1000)}k`
   }
 
-  const heroPhoto = match.listing.photos?.find(Boolean) ?? match.listing.imageUrl
+  const rawHero = match.listing.photos?.find(Boolean) ?? match.listing.imageUrl
+  // Fetch a card-sized image (not the stored 1024x768 ~730KB) for speed.
+  const heroPhoto = rawHero ? resizePhotoUrl(rawHero, 600, 338) : undefined
 
   return (
     <div
@@ -216,6 +219,7 @@ function MatchExplanationCard({
           <img
             src={heroPhoto}
             alt={match.listing.address}
+            loading="lazy"
             className="w-full h-full object-cover"
           />
         ) : (
