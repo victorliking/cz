@@ -18,11 +18,20 @@ export const authOptions: NextAuthOptions = {
         token.id = user.id
         token.role = (user as any).role
       }
+      // INVARIANT: token.sub is the canonical data-owning id. All rows are
+      // created via API routes with agentId = token.sub (see app/api/buyers,
+      // app/api/listings). token.id is only set in the `if (user)` branch at
+      // sign-in and can be missing/stale on later requests. Anchor token.id to
+      // token.sub so server pages (which read token.id) never diverge from API
+      // routes (which read token.sub). This keeps dashboard counts and list
+      // pages in agreement.
+      token.id ??= token.sub
       return token
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.id as string
+        // Resolve to the same id used by API routes / on created rows.
+        session.user.id = (token.id ?? token.sub) as string
         session.user.role = token.role as "AGENT" | "BUYER"
       }
       return session

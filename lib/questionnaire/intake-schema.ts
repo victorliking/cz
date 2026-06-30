@@ -141,7 +141,7 @@ export const INTAKE_QUESTIONS: IntakeQuestion[] = [
       'Finishes & move-in ready',
       'Privacy & quiet',
     ],
-    immediateValueTemplate: 'Compared to most first-time buyers, you weight {top} higher than average',
+    immediateValueTemplate: 'Got it — we\'ll weight {top} most heavily when scoring homes for you',
   },
 
   // Q10: Saturday morning scenario

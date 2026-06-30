@@ -97,6 +97,7 @@ export interface DimensionScore {
   label: string
   score: number    // 0-100
   weight: number   // buyer's priority weight for this dimension
+  assessed: boolean // false when the listing has no data for this dimension (cold-start)
 }
 
 export interface MatchResult {
@@ -204,6 +205,15 @@ const DIMENSION_SHORT_LABELS: Record<string, string> = {
   "Finishes & move-in ready": "Condition",
 }
 
+// A dimension's scorer reports both the 0-100 score AND whether the listing
+// actually had data to assess it. Cold-start honesty: when `assessed` is false,
+// we must NOT credit (or fabricate) reasons/concerns and must NOT fold a guessed
+// midpoint into the weighted score — instead we surface "not yet assessed".
+type DimScoreResult = { score: number; assessed: boolean }
+
+// Helper: present() treats null/undefined as missing (a real 0 stays present).
+const present = (v: number | undefined | null): v is number => v !== undefined && v !== null
+
 // --- Soft Scoring ---
 function scoreListing(
   portrait: BuyerPortrait,
@@ -214,87 +224,108 @@ function scoreListing(
   const highlights: string[] = []
   let totalScore = 0
   let totalWeight = 0
+  const d = listing.dimensions
 
-  // Map priorities to scoring functions
-  const priorityScorers: Record<string, () => number> = {
+  // Map priorities to scoring functions. Each returns { score, assessed }; a
+  // dimension is only "assessed" when the listing actually carries its data, so
+  // we never bluff a confident score (or positive reason) from a defaulted
+  // midpoint.
+  const priorityScorers: Record<string, () => DimScoreResult> = {
     "Schools & family-friendliness": () => {
-      const rating = listing.dimensions.school_rating || 5
+      if (!present(d.school_rating)) return { score: 0, assessed: false }
+      const rating = d.school_rating
       const score = Math.min(rating / 10, 1) * 100
       if (rating >= 8) reasons.push(`Top school district (${rating}/10)`)
       else if (rating <= 5) concerns.push(`School rating only ${rating}/10`)
-      return score
+      return { score, assessed: true }
     },
     "Privacy & quiet": () => {
-      const quiet = listing.dimensions.noise_level || 3
-      const privacy = listing.dimensions.privacy || 3
-      const street = listing.dimensions.street_type
+      // Assessable if we know at least one of noise/privacy. Missing legs default
+      // to a neutral midpoint only to combine with the known leg — but if BOTH
+      // are missing we report unassessed.
+      if (!present(d.noise_level) && !present(d.privacy)) return { score: 0, assessed: false }
+      const quiet = present(d.noise_level) ? d.noise_level : 3
+      const privacy = present(d.privacy) ? d.privacy : 3
+      const street = d.street_type
       const score = ((quiet + privacy) / 10) * 100
-      if (quiet >= 4 && street === "quiet_residential") reasons.push("Quiet residential street")
-      if (quiet <= 2) concerns.push("Noise concerns — close to busy road")
-      return score
+      if (present(d.noise_level) && quiet >= 4 && street === "quiet_residential") reasons.push("Quiet residential street")
+      if (present(d.noise_level) && quiet <= 2) concerns.push("Noise concerns — close to busy road")
+      return { score, assessed: true }
     },
     "Natural light & views": () => {
-      const light = listing.dimensions.natural_light || 3
+      if (!present(d.natural_light)) return { score: 0, assessed: false }
+      const light = d.natural_light
       const score = (light / 5) * 100
       if (light >= 4) reasons.push(`Excellent natural light (${light}/5)`)
       if (light <= 2) concerns.push("Limited natural light")
-      return score
+      return { score, assessed: true }
     },
     "Location & commute": () => {
-      const primary = listing.dimensions.commute_primary || 40
-      const secondary = listing.dimensions.commute_secondary || 40
+      if (!present(d.commute_primary) && !present(d.commute_secondary)) return { score: 0, assessed: false }
+      const primary = present(d.commute_primary) ? d.commute_primary : 40
+      const secondary = present(d.commute_secondary) ? d.commute_secondary : 40
       const avg = (primary + secondary) / 2
       const score = Math.max(0, 100 - (avg - 15) * 3) // 15min = 100, 45min = 10
       if (avg <= 25) reasons.push(`Short commute (avg ${Math.round(avg)} min)`)
       if (avg >= 40) concerns.push(`Long commute (avg ${Math.round(avg)} min)`)
-      return Math.max(0, Math.min(100, score))
+      return { score: Math.max(0, Math.min(100, score)), assessed: true }
     },
     "Outdoor space & yard": () => {
-      const yard = listing.dimensions.yard_usability || 2
+      if (!present(d.yard_usability)) return { score: 0, assessed: false }
+      const yard = d.yard_usability
       const score = (yard / 5) * 100
       if (yard >= 4) reasons.push("Great yard space")
       if (yard <= 2) concerns.push("Limited outdoor space")
-      return score
+      return { score, assessed: true }
     },
     "Space & square footage": () => {
-      // Score based on sqft relative to expectation derived from bedroom count
+      // Always assessable — derived from sqft, which every listing carries.
       const target = portrait.hardFilters.minBedrooms * 450 + 600
       const ratio = listing.sqft / target
       const score = Math.min(ratio, 1.2) * 83 // Cap at 100
       if (listing.sqft >= target) reasons.push(`Spacious at ${listing.sqft.toLocaleString()} sqft`)
       if (listing.sqft < target * 0.75) concerns.push(`Only ${listing.sqft.toLocaleString()} sqft`)
-      return Math.min(100, score)
+      return { score: Math.min(100, score), assessed: true }
     },
     "Kitchen & entertaining": () => {
-      const kitchen = listing.dimensions.kitchen_quality || 3
-      const openness = listing.dimensions.openness || 3
+      if (!present(d.kitchen_quality) && !present(d.openness)) return { score: 0, assessed: false }
+      const kitchen = present(d.kitchen_quality) ? d.kitchen_quality : 3
+      const openness = present(d.openness) ? d.openness : 3
       const score = ((kitchen + openness) / 10) * 100
-      if (kitchen >= 4 && openness >= 4) reasons.push("Updated kitchen with open layout")
-      if (kitchen <= 2) concerns.push("Kitchen needs renovation")
-      return score
+      if (present(d.kitchen_quality) && present(d.openness) && kitchen >= 4 && openness >= 4) reasons.push("Updated kitchen with open layout")
+      if (present(d.kitchen_quality) && kitchen <= 2) concerns.push("Kitchen needs renovation")
+      return { score, assessed: true }
     },
     "Finishes & move-in ready": () => {
-      const readiness = listing.dimensions.move_in_readiness || 3
+      if (!present(d.move_in_readiness)) return { score: 0, assessed: false }
+      const readiness = d.move_in_readiness
       const score = (readiness / 5) * 100
       if (readiness >= 4) reasons.push("Move-in ready condition")
       if (readiness <= 2) concerns.push("Needs significant updates")
-      return score
+      return { score, assessed: true }
     },
   }
 
-  // Score each priority with its weight
+  // Score each priority with its weight. Only ASSESSED dimensions contribute to
+  // the weighted average — we renormalize over the assessed weight so a listing
+  // with sparse data isn't propped up by guessed midpoints. Unassessed
+  // dimensions are still listed (so the buyer sees what we couldn't evaluate)
+  // but flagged assessed:false and excluded from the aggregate.
   const dimensionScores: DimensionScore[] = []
   for (const priority of portrait.priorities) {
     const scorer = priorityScorers[priority.item]
     if (scorer) {
-      const dimScore = scorer()
-      totalScore += dimScore * priority.weight
-      totalWeight += priority.weight
+      const { score: dimScore, assessed } = scorer()
+      if (assessed) {
+        totalScore += dimScore * priority.weight
+        totalWeight += priority.weight
+      }
       dimensionScores.push({
         dimension: priority.item,
         label: DIMENSION_SHORT_LABELS[priority.item] || priority.item,
-        score: Math.round(dimScore),
+        score: assessed ? Math.round(dimScore) : 0,
         weight: priority.weight,
+        assessed,
       })
     }
   }
@@ -345,10 +376,14 @@ function scoreListing(
     concerns.push(`${Math.round(budgetPct - 100)}% above your comfortable range`)
   }
 
-  // Normalize score
-  const finalScore = totalWeight > 0 ? Math.round(totalScore / totalWeight) : 50
+  // Normalize score over the ASSESSED weight only. If nothing could be assessed
+  // (no listing data for any weighted dimension), don't fabricate a confident
+  // ~50% "coin flip" — report a low, clearly-unconfident score so the verdict
+  // lands as "weak"/"Stretch" rather than implying a real evaluation happened.
+  const finalScore = totalWeight > 0 ? Math.round(totalScore / totalWeight) : 0
 
-  // Pick top 3 highlights
+  // Pick top 3 highlights. reasons[] now only contain claims for dimensions the
+  // listing actually had data for, so highlights stay honest.
   const topHighlights = [...reasons.slice(0, 2), ...highlights.slice(0, 1)].slice(0, 3)
 
   return {

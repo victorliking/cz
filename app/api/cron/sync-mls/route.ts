@@ -21,6 +21,8 @@ import {
   buildAddress,
 } from '@/lib/mls/field-map'
 import { resolveTownName } from '@/lib/mls/town-map'
+import { autoDeriveVector } from '@/lib/mls/auto-derive-vector'
+import { getSchoolRatingNumber } from '@/lib/geo/school-ratings'
 
 // Vercel Pro serverless timeout is 300s. We filter early to stay within limits.
 export const maxDuration = 300
@@ -411,6 +413,12 @@ async function upsertListing(listing: MappedListing): Promise<'created' | 'updat
     },
   })
 
+  // Auto-derive scoring dimensions from MLS data + school rating from city,
+  // mirroring lib/mls/sync.ts upsertListings so cron-synced inventory scores
+  // on real derived data instead of flat null defaults.
+  const derived = autoDeriveVector(listing)
+  const schoolRating = getSchoolRatingNumber(listing.city)
+
   const data = {
     agentId: systemAgent,
     address: listing.address,
@@ -440,12 +448,15 @@ async function upsertListing(listing: MappedListing): Promise<'created' | 'updat
       year_built: listing.yearBuilt,
       style: listing.style,
       heating_type: listing.heating,
-      natural_light: null,
-      noise_level: null,
-      openness: null,
-      privacy_from_neighbors: null,
-      move_in_readiness: null,
-      yard_usability: null,
+      // Auto-derived dimensions (overridden by agent if scored later)
+      natural_light: derived.natural_light,
+      noise_level: derived.noise_level,
+      openness: derived.openness,
+      privacy_from_neighbors: derived.privacy,
+      move_in_readiness: derived.move_in_readiness,
+      yard_usability: derived.yard_usability,
+      kitchen_quality: derived.kitchen_quality,
+      school_rating: schoolRating,
       _mls: {
         mlsNumber: listing.mlsNumber,
         listAgentId: listing.listAgentId,
