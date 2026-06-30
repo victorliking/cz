@@ -394,6 +394,7 @@ function TownAutocomplete({
       values={value || []}
       onChange={onChange}
       placeholder="Start typing a city or town..."
+      restrictToSuggestions
     />
   )
 }

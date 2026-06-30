@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verifyIntakeToken } from "@/lib/intake-token"
 import { rateLimit, getClientIp } from "@/lib/rate-limit"
+import { normalizeTargetCities } from "@/lib/data/ma-towns"
 
 export async function POST(request: NextRequest) {
   const rl = rateLimit(`intake-submit:${getClientIp(request)}`, {
@@ -37,6 +38,13 @@ export async function POST(request: NextRequest) {
 
   const durationSeconds = answers._durationSeconds || null
   const { _durationSeconds, ...cleanAnswers } = answers
+
+  // Backstop for the unsupervised public link: normalize target_areas to real
+  // MA towns before persisting, dropping garbage like "1". The portrait/matcher
+  // read answers.target_areas, so this protects the whole pipeline.
+  if (cleanAnswers.target_areas !== undefined) {
+    cleanAnswers.target_areas = normalizeTargetCities(cleanAnswers.target_areas)
+  }
 
   const priorityRanking = (cleanAnswers.priority_ranking as string[]) || []
 

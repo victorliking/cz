@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getApiUser } from "@/lib/auth"
+import { normalizeTargetCities } from "@/lib/data/ma-towns"
 
 export async function POST(request: NextRequest) {
   const apiUser = await getApiUser(request)
@@ -27,6 +28,14 @@ export async function POST(request: NextRequest) {
 
   const durationSeconds = answers._durationSeconds || null
   const { _durationSeconds, ...cleanAnswers } = answers
+
+  // Backstop: normalize target_areas to canonical MA towns BEFORE persisting,
+  // dropping unrecognized free text (e.g. "1", "Bostn"). The portrait/matcher
+  // read answers.target_areas, so cleaning it here protects the whole pipeline
+  // even if the client validation is bypassed.
+  if (cleanAnswers.target_areas !== undefined) {
+    cleanAnswers.target_areas = normalizeTargetCities(cleanAnswers.target_areas)
+  }
 
   // Extract priority ranking for dedicated field
   const priorityRanking = (cleanAnswers.priority_ranking as string[]) || []

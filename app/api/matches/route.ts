@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { generatePortrait } from "@/lib/portrait/generate-portrait"
 import { matchListings, matchListingsEvolved, ListingForMatch, MatchResult } from "@/lib/scoring/match-engine"
 import { getSchoolRatingNumber } from "@/lib/geo/school-ratings"
+import { normalizeTargetCities } from "@/lib/data/ma-towns"
 import { getSignificantChanges, isValidPreferenceState, type PreferenceState } from "@/lib/scoring/bayesian-learner"
 import { getApiUser } from "@/lib/auth"
 import { rateLimit, getClientIp } from "@/lib/rate-limit"
@@ -37,17 +38,32 @@ export async function GET(request: NextRequest) {
   const answers = profile.intakeResponse.answers as Record<string, any>
   const portrait = generatePortrait(answers)
 
-  // Progressively relax filters if we get too few results
-  let dbListings = await fetchListings(portrait, 1.15, true)
+  // Read-time normalization: scrub the portrait's target cities against real MA
+  // towns. New submits are already cleaned, but LEGACY rows (e.g. "1" stored
+  // before intake validation existed) would otherwise become an impossible
+  // `city IN ('1')` filter. This fixes them live, with no DB migration.
+  const submittedAreas = Array.isArray(answers.target_areas) ? answers.target_areas.length : 0
+  portrait.hardFilters.targetCities = normalizeTargetCities(portrait.hardFilters.targetCities)
+  const usableCities = portrait.hardFilters.targetCities.length
+
   let relaxed = false
   let relaxedReason: string | undefined
+  if (submittedAreas > 0 && usableCities === 0) {
+    // They named area(s), but none mapped to a town we cover → honest message.
+    relaxed = true
+    relaxedReason = "We couldn't match your chosen area to a town we cover, so these are homes across the region within your budget. Update your areas in intake to refine."
+  }
+
+  // Progressively relax filters if we get too few results
+  let dbListings = await fetchListings(portrait, 1.15, true)
 
   if (dbListings.length < 3) {
     // First relaxation: expand budget from 115% to 130%
     dbListings = await fetchListings(portrait, 1.30, true)
     if (dbListings.length >= 3) {
       relaxed = true
-      relaxedReason = "Expanded budget range to find more matches"
+      // Don't clobber the more specific "couldn't match your area" message.
+      relaxedReason = relaxedReason ?? "Expanded budget range to find more matches"
     }
   }
 
@@ -55,7 +71,7 @@ export async function GET(request: NextRequest) {
     // Second relaxation: drop city filter entirely
     dbListings = await fetchListings(portrait, 1.30, false)
     relaxed = true
-    relaxedReason = "Expanded search area and budget to find more matches"
+    relaxedReason = relaxedReason ?? "Expanded search area and budget to find more matches"
   }
 
   // Convert DB listings to match engine format

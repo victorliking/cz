@@ -260,27 +260,40 @@ export function extractSignalsFromFeedback(feedback: {
     "modern": "Finishes & move-in ready",
     "new": "Finishes & move-in ready",
     "move-in": "Finishes & move-in ready",
-    "charm": "Finishes & move-in ready",
-    "character": "Finishes & move-in ready",
   }
 
-  // Process liked chips
+  // Inverted signals: liking these means the buyer prefers period CHARACTER over
+  // turnkey-modern finishes, i.e. a NEGATIVE signal on "Finishes & move-in ready"
+  // (and disliking them is a positive signal). Previously "charm"/"character"
+  // mapped straight to "Finishes & move-in ready", pushing charm-seekers toward
+  // renovated/modern homes — the opposite of what they want.
+  const INVERTED_CHIP_TO_DIMENSION: Record<string, string> = {
+    "charm": "Finishes & move-in ready",
+    "character": "Finishes & move-in ready",
+    "original": "Finishes & move-in ready",
+    "period": "Finishes & move-in ready",
+  }
+
+  // Process liked chips: normal keywords add +, inverted keywords (charm/character)
+  // subtract — liking "character" means wanting LESS move-in-ready/modern.
   const likedWords = feedback.liked.toLowerCase().split(/[,;|\n]+/).map(s => s.trim())
   for (const word of likedWords) {
     for (const [keyword, dimension] of Object.entries(CHIP_TO_DIMENSION)) {
-      if (word.includes(keyword)) {
-        signals[dimension] = (signals[dimension] || 0) + 0.5
-      }
+      if (word.includes(keyword)) signals[dimension] = (signals[dimension] || 0) + 0.5
+    }
+    for (const [keyword, dimension] of Object.entries(INVERTED_CHIP_TO_DIMENSION)) {
+      if (word.includes(keyword)) signals[dimension] = (signals[dimension] || 0) - 0.5
     }
   }
 
-  // Process disliked chips
+  // Process disliked chips: signs flip.
   const dislikedWords = feedback.disliked.toLowerCase().split(/[,;|\n]+/).map(s => s.trim())
   for (const word of dislikedWords) {
     for (const [keyword, dimension] of Object.entries(CHIP_TO_DIMENSION)) {
-      if (word.includes(keyword)) {
-        signals[dimension] = (signals[dimension] || 0) - 0.5
-      }
+      if (word.includes(keyword)) signals[dimension] = (signals[dimension] || 0) - 0.5
+    }
+    for (const [keyword, dimension] of Object.entries(INVERTED_CHIP_TO_DIMENSION)) {
+      if (word.includes(keyword)) signals[dimension] = (signals[dimension] || 0) + 0.5
     }
   }
 

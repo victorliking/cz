@@ -65,3 +65,25 @@ export const COMMON_COMMUTE_DESTINATIONS = [
   "Somerville, MA",
   "Brookline, MA",
 ]
+
+const MA_TOWN_LOOKUP = new Map(MA_TOWNS.map((t) => [t.toLowerCase(), t]))
+
+/**
+ * Normalize submitted target areas to canonical MA town names.
+ *
+ * Server-side backstop against unvalidated intake input (e.g. a buyer typing
+ * "1", "Bostn", or "downtown"): unrecognized entries are dropped so they never
+ * become an impossible `city IN (...)` hard filter. Returns the canonical-cased
+ * subset; an empty array means "no usable town filter" (the matcher then falls
+ * back to no city filter rather than matching nothing).
+ */
+export function normalizeTargetCities(input: unknown): string[] {
+  if (!Array.isArray(input)) return []
+  const out: string[] = []
+  for (const raw of input) {
+    if (typeof raw !== "string") continue
+    const hit = MA_TOWN_LOOKUP.get(raw.trim().toLowerCase())
+    if (hit && !out.includes(hit)) out.push(hit)
+  }
+  return out
+}

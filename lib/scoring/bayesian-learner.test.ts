@@ -182,6 +182,18 @@ describe("extractSignalsFromFeedback", () => {
     expect(signals["Natural light & views"]).toBeCloseTo(0.5, 6)
   })
 
+  it("treats liking 'character & charm' as a NEGATIVE signal on move-in-ready (not positive)", () => {
+    const signals = extractSignalsFromFeedback({
+      liked: "charm, character",
+      disliked: "",
+      verdict: "neutral",
+      listingDimensions: {},
+    })
+    // A buyer who loves period character wants LESS turnkey-modern, so the
+    // "Finishes & move-in ready" weight should move DOWN, never up.
+    expect(signals["Finishes & move-in ready"]).toBeLessThan(0)
+  })
+
   it("maps disliked chip keywords to negative signal", () => {
     const signals = extractSignalsFromFeedback({
       liked: "",
