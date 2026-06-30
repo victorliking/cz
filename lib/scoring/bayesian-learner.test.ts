@@ -5,6 +5,7 @@ import {
   extractSignalsFromFeedback,
   calculateDrift,
   getSignificantChanges,
+  isValidPreferenceState,
   type PreferenceState,
   type FeedbackSignal,
 } from "@/lib/scoring/bayesian-learner"
@@ -345,5 +346,119 @@ describe("getSignificantChanges", () => {
     for (let i = 1; i < changes.length; i++) {
       expect(Math.abs(changes[i - 1].delta)).toBeGreaterThanOrEqual(Math.abs(changes[i].delta))
     }
+  })
+
+  it("does not throw on a ragged state (prior shorter than current)", () => {
+    // Simulate malformed untrusted JSON: current has 2 dims, prior has 1.
+    // The defensive guard must skip the unmatched dimension rather than
+    // dereferencing prior[1] (undefined) and throwing.
+    const ragged = {
+      current: [
+        { dimension: "Natural light & views", weight: 0.6, confidence: 0.5 },
+        { dimension: "Privacy & quiet", weight: 0.4, confidence: 0.5 },
+      ],
+      prior: [
+        { dimension: "Natural light & views", weight: 0.5, confidence: 0.3 },
+      ],
+      history: [],
+      evidenceCount: 1,
+    } as unknown as PreferenceState
+
+    let changes: ReturnType<typeof getSignificantChanges> = []
+    expect(() => {
+      changes = getSignificantChanges(ragged, 0.03)
+    }).not.toThrow()
+    // Only the comparable dimension can be reported; the unmatched one is skipped.
+    expect(changes.every((c) => c.dimension === "Natural light & views")).toBe(true)
+  })
+})
+
+describe("isValidPreferenceState", () => {
+  it("accepts a well-formed state produced by the learner", () => {
+    const state = makeIntake()
+    expect(isValidPreferenceState(state)).toBe(true)
+  })
+
+  it("accepts a state after updates (current/prior stay equal length)", () => {
+    let state = makeIntake()
+    state = updateWeights(state, {
+      source: "PURE_BEHAVIOR",
+      dimensionSignals: { "Natural light & views": 1, "Privacy & quiet": -1 },
+      listingId: "l",
+      listingDimensions: {},
+      timestamp: "2026-06-30T00:00:00.000Z",
+    }).newState
+    expect(isValidPreferenceState(state)).toBe(true)
+  })
+
+  it("rejects non-objects and null", () => {
+    expect(isValidPreferenceState(null)).toBe(false)
+    expect(isValidPreferenceState(undefined)).toBe(false)
+    expect(isValidPreferenceState("nope")).toBe(false)
+    expect(isValidPreferenceState(42)).toBe(false)
+  })
+
+  it("rejects a ragged state (current and prior of unequal length)", () => {
+    const ragged = {
+      current: [
+        { dimension: "Natural light & views", weight: 0.6, confidence: 0.5 },
+        { dimension: "Privacy & quiet", weight: 0.4, confidence: 0.5 },
+      ],
+      prior: [
+        { dimension: "Natural light & views", weight: 0.5, confidence: 0.3 },
+      ],
+      history: [],
+      evidenceCount: 1,
+    }
+    expect(isValidPreferenceState(ragged)).toBe(false)
+  })
+
+  it("rejects a state missing the current or prior arrays", () => {
+    expect(isValidPreferenceState({ prior: [], history: [], evidenceCount: 0 })).toBe(false)
+    expect(isValidPreferenceState({ current: [], history: [], evidenceCount: 0 })).toBe(false)
+  })
+
+  it("rejects elements with a non-numeric / NaN / Infinity weight", () => {
+    const nan = {
+      current: [{ dimension: "Natural light & views", weight: NaN, confidence: 0.5 }],
+      prior: [{ dimension: "Natural light & views", weight: 0.5, confidence: 0.3 }],
+      history: [],
+      evidenceCount: 0,
+    }
+    const inf = {
+      current: [{ dimension: "Natural light & views", weight: Infinity, confidence: 0.5 }],
+      prior: [{ dimension: "Natural light & views", weight: 0.5, confidence: 0.3 }],
+      history: [],
+      evidenceCount: 0,
+    }
+    const str = {
+      current: [{ dimension: "Natural light & views", weight: "0.5", confidence: 0.5 }],
+      prior: [{ dimension: "Natural light & views", weight: 0.5, confidence: 0.3 }],
+      history: [],
+      evidenceCount: 0,
+    }
+    expect(isValidPreferenceState(nan)).toBe(false)
+    expect(isValidPreferenceState(inf)).toBe(false)
+    expect(isValidPreferenceState(str)).toBe(false)
+  })
+
+  it("rejects elements with a missing / non-string dimension", () => {
+    const bad = {
+      current: [{ weight: 0.5, confidence: 0.5 }],
+      prior: [{ dimension: "Natural light & views", weight: 0.5, confidence: 0.3 }],
+      history: [],
+      evidenceCount: 0,
+    }
+    expect(isValidPreferenceState(bad)).toBe(false)
+  })
+
+  it("rejects a non-numeric evidenceCount", () => {
+    const bad = {
+      current: [{ dimension: "Natural light & views", weight: 0.5, confidence: 0.5 }],
+      prior: [{ dimension: "Natural light & views", weight: 0.5, confidence: 0.3 }],
+      history: [],
+      evidenceCount: "lots",
+    }
+    expect(isValidPreferenceState(bad)).toBe(false)
   })
 })

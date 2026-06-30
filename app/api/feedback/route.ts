@@ -11,6 +11,7 @@ import { generatePreferenceReport } from "@/lib/scoring/preference-report"
 import { generateInsights, type GeneratedInsight } from "@/lib/insights/generate-insights"
 import type { FeedbackHistory } from "@/lib/insights/mismatch-detector"
 import { getApiUser } from "@/lib/auth"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 export interface ShowingFeedbackEntry {
   id: string
@@ -62,6 +63,17 @@ export async function POST(request: NextRequest) {
   const userId = apiUser?.id
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  }
+
+  const rl = rateLimit(`feedback:${userId || getClientIp(request)}`, {
+    limit: 30,
+    windowMs: 60_000,
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    )
   }
 
   const body = await request.json()
