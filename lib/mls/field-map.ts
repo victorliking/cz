@@ -202,7 +202,10 @@ export const STATUS_MAP: Record<string, MappedListing['status']> = {
   'ACT': 'ACTIVE',
   'NEW': 'ACTIVE',
   'BOM': 'ACTIVE',     // Back on Market
-  'PCH': 'PENDING',    // Price Change (still active but treating as active)
+  'PCG': 'ACTIVE',     // Price Change — still on the market (real code in the IDX feed)
+  'PCH': 'ACTIVE',     // Price Change (alt spelling seen in some feeds)
+  'EXT': 'ACTIVE',     // Extended — listing term extended, still active
+  'RAC': 'ACTIVE',     // Reactivated
   'CTG': 'PENDING',    // Contingent
   'UAG': 'PENDING',    // Under Agreement
   'SLD': 'SOLD',
@@ -210,9 +213,6 @@ export const STATUS_MAP: Record<string, MappedListing['status']> = {
   'EXP': 'WITHDRAWN',  // Expired
   'CAN': 'WITHDRAWN',  // Cancelled
 }
-
-// Make PCH actually ACTIVE
-STATUS_MAP['PCH'] = 'ACTIVE'
 
 // ============================================================
 // PROPERTY TYPE MAPPING

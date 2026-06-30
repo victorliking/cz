@@ -20,6 +20,7 @@ import {
   buildPhotoUrls,
   buildAddress,
 } from '@/lib/mls/field-map'
+import { resolveTownName } from '@/lib/mls/town-map'
 
 // Vercel Pro serverless timeout is 300s. We filter early to stay within limits.
 export const maxDuration = 300
@@ -343,9 +344,10 @@ function mapRecordFromRaw(
   const unitNo = stripQuotes(rec.UNIT_NO)
   const photoCount = parseNum(rec.PHOTO_COUNT) || 0
 
-  // City: MLS PIN includes NEIGHBORHOOD or a resolved town name in some feeds.
-  // In the combined IDX files, the town may be in TOWN field or we use NEIGHBORHOOD.
-  const city = stripQuotes(rec.TOWN) || stripQuotes(rec.NEIGHBORHOOD) || ''
+  // City: the IDX flat files carry a numeric TOWN_NUM (not a TOWN name). Resolve
+  // it via the committed town-map (towns.txt is gitignored / absent on serverless).
+  // Fall back to NEIGHBORHOOD only when the code is unknown.
+  const city = resolveTownName(rec.TOWN_NUM) || stripQuotes(rec.NEIGHBORHOOD) || ''
 
   return {
     mlsNumber: listNo,

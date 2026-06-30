@@ -5,6 +5,7 @@ import {
   buildAddress,
   buildPhotoUrls,
 } from "@/lib/mls/field-map"
+import { resolveTownName, TOWN_NUM_TO_NAME } from "@/lib/mls/town-map"
 
 describe("STATUS_MAP", () => {
   it("maps active-family codes to ACTIVE", () => {
@@ -37,24 +38,24 @@ describe("STATUS_MAP", () => {
   // ---------------------------------------------------------------------------
   // KNOWN MISMATCH (tracked, not hidden):
   //
-  // Per IDX_MLS_DB_Definitions.pdf the real MLS PIN status codes include
-  // "PCG" (Price Change) and "EXT" (Extended). The STATUS_MAP here instead
-  // uses "PCH" and "EXP", so the genuine feed codes fall through unmapped
-  // (lookup returns undefined). The two tests below document CURRENT behavior;
-  // the .todo tests below capture the DESIRED behavior so it's tracked.
+  // The real MLS PIN status codes present in the IDX feed (verified by sampling
+  // data/mls/idx_sf.txt) include "PCG" (Price Change, 251 rows), "EXT" (Extended,
+  // 14 rows), and "RAC" (Reactivated, 4 rows) — all still on the market. Earlier
+  // the map only had "PCH"/"EXP", so these genuine codes fell through to the
+  // `|| 'WITHDRAWN'` default and ~265 active listings were silently hidden.
   // ---------------------------------------------------------------------------
 
-  it("CURRENT behavior: real code 'PCG' is NOT mapped (returns undefined)", () => {
-    expect(STATUS_MAP["PCG"]).toBeUndefined()
+  it("maps real feed code 'PCG' (Price Change) to ACTIVE", () => {
+    expect(STATUS_MAP["PCG"]).toBe("ACTIVE")
   })
 
-  it("CURRENT behavior: real code 'EXT' is NOT mapped (returns undefined)", () => {
-    expect(STATUS_MAP["EXT"]).toBeUndefined()
+  it("maps real feed code 'EXT' (Extended) to ACTIVE", () => {
+    expect(STATUS_MAP["EXT"]).toBe("ACTIVE")
   })
 
-  it.todo("DESIRED: 'PCG' (Price Change) should map to ACTIVE — add STATUS_MAP['PCG'] = 'ACTIVE'")
-
-  it.todo("DESIRED: 'EXT' (Extended) should map to a real status (likely ACTIVE) — add STATUS_MAP['EXT']")
+  it("maps real feed code 'RAC' (Reactivated) to ACTIVE", () => {
+    expect(STATUS_MAP["RAC"]).toBe("ACTIVE")
+  })
 })
 
 describe("PROP_TYPE_MAP", () => {
@@ -96,5 +97,33 @@ describe("buildPhotoUrls", () => {
 
   it("returns an empty array when there are no photos", () => {
     expect(buildPhotoUrls(12345, 0)).toEqual([])
+  })
+})
+
+describe("resolveTownName (TOWN_NUM lookup)", () => {
+  // The cron sync reads the numeric TOWN_NUM column (the IDX files have no TOWN
+  // name column). This map is committed as code because data/mls/towns.txt is
+  // gitignored / absent on the serverless filesystem.
+  it("resolves known Greater Boston TOWN_NUM codes to town names", () => {
+    expect(resolveTownName(1)).toBe("Boston")
+    expect(resolveTownName(13)).toBe("Cambridge")
+    expect(resolveTownName(17)).toBe("Somerville")
+    expect(resolveTownName(42)).toBe("Arlington")
+  })
+
+  it("accepts string TOWN_NUM values (as they arrive from the parsed feed)", () => {
+    expect(resolveTownName("13")).toBe("Cambridge")
+    expect(resolveTownName('"13"')).toBe("Cambridge") // tolerant of stray quotes
+  })
+
+  it("returns empty string for unknown / blank codes (caller falls back to NEIGHBORHOOD)", () => {
+    expect(resolveTownName(999999)).toBe("")
+    expect(resolveTownName("")).toBe("")
+    expect(resolveTownName(null)).toBe("")
+    expect(resolveTownName(undefined)).toBe("")
+  })
+
+  it("has a substantial town table loaded", () => {
+    expect(Object.keys(TOWN_NUM_TO_NAME).length).toBeGreaterThan(2000)
   })
 })
