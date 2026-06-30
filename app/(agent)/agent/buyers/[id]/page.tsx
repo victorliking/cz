@@ -8,6 +8,7 @@ import Link from "next/link"
 import { AgentFeedbackSection } from "@/components/feedback/AgentFeedbackSection"
 import { InsightsPanel } from "./InsightsPanel"
 import { PastObservations } from "@/components/observations/PastObservations"
+import { JourneyTimeline } from "@/components/recommendations/JourneyTimeline"
 import { STYLE_EXAMPLES } from "@/lib/data/style-examples"
 
 export const dynamic = "force-dynamic"
@@ -251,6 +252,9 @@ export default async function AgentBuyerDetailPage({ params }: { params: { id: s
           </div>
         </section>
       )}
+
+      {/* Recommendation History — recommended → shown → reacted journey timeline */}
+      <JourneyTimeline buyerProfileId={profile.id} />
 
       {/* Agent Observations — past recorded observations from showings */}
       <PastObservations buyerProfileId={profile.id} />
