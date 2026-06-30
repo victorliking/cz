@@ -29,18 +29,25 @@ export function SyncNowButton() {
         setResult({ ok: false, message: data.error || `Sync failed (HTTP ${res.status}).` })
       } else {
         const s = data.summary
-        if (s) {
+        if (s && (s.filesProcessed?.length ?? 0) === 0) {
+          // Download leg produced nothing — show the actionable hint, not a count.
+          setResult({
+            ok: false,
+            message:
+              data.hint ||
+              "No files downloaded from MLS PIN. Use the manual refresh flow (see data/mls/README.md).",
+          })
+        } else if (s) {
           const note = s.staleNote ? ` ${s.staleNote}` : ""
-          const errs = s.errors?.length ? ` ${s.errors.length} error(s).` : ""
           setResult({
             ok: true,
-            message: `Synced ${s.synced} listings (${s.new} new, ${s.updated} updated) from ${s.filesProcessed?.length ?? 0} file(s) in ${Math.round((s.durationMs ?? 0) / 1000)}s.${note}${errs}`,
+            message: `Synced ${s.synced} listings (${s.new} new, ${s.updated} updated) from ${s.filesProcessed?.length ?? 0} file(s) in ${Math.round((s.durationMs ?? 0) / 1000)}s.${note}`,
           })
+          router.refresh()
         } else {
           setResult({ ok: true, message: "Sync completed." })
+          router.refresh()
         }
-        // Refresh the server component so the freshness card updates.
-        router.refresh()
       }
     } catch (err) {
       setResult({ ok: false, message: err instanceof Error ? err.message : "Sync request failed." })

@@ -200,9 +200,17 @@ export async function GET(request: NextRequest) {
 
     summary.durationMs = Date.now() - startTime
 
+    // Honest diagnosis when the download leg produced nothing. MLS PIN IDX is
+    // a manual portal download (Quick Links → IDX Downloads), not a documented
+    // programmatic endpoint — the auto-download here is best-effort and may not
+    // work against the live service. Surface that instead of a cryptic count.
+    const downloadFailed = summary.filesProcessed.length === 0
     return NextResponse.json({
-      success: true,
+      success: !downloadFailed,
       summary,
+      hint: downloadFailed
+        ? "No files downloaded. MLS PIN IDX has no documented auto-download endpoint — use the manual refresh flow: download the IDX files from mlspin.com (Quick Links → IDX Downloads) into data/mls/, then run `npx tsx scripts/import-mls.ts --agent-id <id>`. See data/mls/README.md."
+        : undefined,
       timestamp: new Date().toISOString(),
     })
   } catch (err) {
