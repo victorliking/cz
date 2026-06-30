@@ -12,6 +12,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { parseMlsFile } from '@/lib/mls/parser'
+import { rateLimit, getClientIp } from '@/lib/rate-limit'
 import {
   MappedListing,
   STATUS_MAP,
@@ -19,6 +20,7 @@ import {
   buildPhotoUrls,
   buildAddress,
 } from '@/lib/mls/field-map'
+import { resolveTownName } from '@/lib/mls/town-map'
 
 // Vercel Pro serverless timeout is 300s. We filter early to stay within limits.
 export const maxDuration = 300
@@ -47,8 +49,10 @@ const GREATER_BOSTON_TOWNS = new Set([
 // --------------------------------------------------------------------------
 
 const MLS_PIN_BASE_URL = 'https://www.mlspin.com/idx'
-const MLS_PIN_USERNAME = process.env.MLS_PIN_USERNAME || 'CN260212'
-const MLS_PIN_PASSWORD = process.env.MLS_PIN_PASSWORD || '78Lakeshore!'
+// Credentials are loaded from the environment only. There are NO hardcoded
+// fallbacks — the route fails closed (see GET handler) if either is missing.
+const MLS_PIN_USERNAME = process.env.MLS_PIN_USERNAME
+const MLS_PIN_PASSWORD = process.env.MLS_PIN_PASSWORD
 
 const IDX_FILES = [
   { name: 'idx_sf.txt', propType: 'sf' as const },
@@ -60,6 +64,18 @@ const IDX_FILES = [
 // --------------------------------------------------------------------------
 
 export async function GET(request: NextRequest) {
+  // Rate limit by IP — cheap defense against repeated probing of this endpoint.
+  const limit = rateLimit(`cron:sync-mls:${getClientIp(request)}`, {
+    limit: 5,
+    windowMs: 60_000,
+  })
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
+    )
+  }
+
   // Verify cron secret
   const authHeader = request.headers.get('authorization')
   const cronSecret = process.env.CRON_SECRET
@@ -75,6 +91,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       { error: 'Unauthorized' },
       { status: 401 }
+    )
+  }
+
+  // Fail closed: never run the sync without real MLS PIN credentials.
+  if (!MLS_PIN_USERNAME || !MLS_PIN_PASSWORD) {
+    console.error(
+      '[sync-mls] MLS_PIN_USERNAME / MLS_PIN_PASSWORD are not configured — refusing to sync.'
+    )
+    return NextResponse.json(
+      { error: 'MLS PIN credentials not configured' },
+      { status: 500 }
     )
   }
 
@@ -97,7 +124,7 @@ export async function GET(request: NextRequest) {
     // Download and process each IDX file
     for (const file of IDX_FILES) {
       try {
-        const content = await downloadIdxFile(file.name)
+        const content = await downloadIdxFile(file.name, MLS_PIN_USERNAME, MLS_PIN_PASSWORD)
         if (!content) {
           summary.errors.push(`Failed to download ${file.name}`)
           continue
@@ -193,9 +220,13 @@ export async function GET(request: NextRequest) {
  * - https://www.mlspin.com/idx/<filename>
  * - https://www.mlspin.com/cgi-bin/idx.asp?file=<filename>
  */
-async function downloadIdxFile(fileName: string): Promise<string | null> {
+async function downloadIdxFile(
+  fileName: string,
+  username: string,
+  password: string
+): Promise<string | null> {
   // Step 1: Authenticate and get session cookie
-  const sessionCookie = await getMlsPinSession()
+  const sessionCookie = await getMlsPinSession(username, password)
   if (!sessionCookie) {
     return null
   }
@@ -230,7 +261,7 @@ async function downloadIdxFile(fileName: string): Promise<string | null> {
   }
 
   // Step 3: Try HTTP Basic Auth as fallback (some IDX feeds support this)
-  const credentials = Buffer.from(`${MLS_PIN_USERNAME}:${MLS_PIN_PASSWORD}`).toString('base64')
+  const credentials = Buffer.from(`${username}:${password}`).toString('base64')
   for (const url of downloadUrls) {
     try {
       const response = await fetch(url, {
@@ -257,7 +288,7 @@ async function downloadIdxFile(fileName: string): Promise<string | null> {
 /**
  * Login to mlspin.com and return session cookie string.
  */
-async function getMlsPinSession(): Promise<string | null> {
+async function getMlsPinSession(username: string, password: string): Promise<string | null> {
   const loginUrls = [
     'https://www.mlspin.com/login.asp',
     'https://www.mlspin.com/cgi-bin/login.asp',
@@ -272,7 +303,7 @@ async function getMlsPinSession(): Promise<string | null> {
           'Content-Type': 'application/x-www-form-urlencoded',
           'User-Agent': 'Mozilla/5.0 (compatible; HomeMatch/1.0)',
         },
-        body: `user_name=${encodeURIComponent(MLS_PIN_USERNAME)}&password=${encodeURIComponent(MLS_PIN_PASSWORD)}`,
+        body: `user_name=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`,
         redirect: 'manual',
       })
 
@@ -313,9 +344,10 @@ function mapRecordFromRaw(
   const unitNo = stripQuotes(rec.UNIT_NO)
   const photoCount = parseNum(rec.PHOTO_COUNT) || 0
 
-  // City: MLS PIN includes NEIGHBORHOOD or a resolved town name in some feeds.
-  // In the combined IDX files, the town may be in TOWN field or we use NEIGHBORHOOD.
-  const city = stripQuotes(rec.TOWN) || stripQuotes(rec.NEIGHBORHOOD) || ''
+  // City: the IDX flat files carry a numeric TOWN_NUM (not a TOWN name). Resolve
+  // it via the committed town-map (towns.txt is gitignored / absent on serverless).
+  // Fall back to NEIGHBORHOOD only when the code is unknown.
+  const city = resolveTownName(rec.TOWN_NUM) || stripQuotes(rec.NEIGHBORHOOD) || ''
 
   return {
     mlsNumber: listNo,

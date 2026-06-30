@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { generatePortrait } from "@/lib/portrait/generate-portrait"
-import { matchListings, ListingForMatch } from "@/lib/scoring/match-engine"
+import { matchListings, matchListingsEvolved, ListingForMatch, MatchResult } from "@/lib/scoring/match-engine"
 import { getSchoolRatingNumber } from "@/lib/geo/school-ratings"
+import { getSignificantChanges, type PreferenceState } from "@/lib/scoring/bayesian-learner"
 import { getApiUser } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
@@ -78,22 +79,131 @@ export async function GET(request: NextRequest) {
         commute_secondary: vector.commute_minutes_secondary || vector.commute_secondary || undefined,
         style: vector.style || vector._mls?.style || undefined,
         street_type: vector.street_type || undefined,
+        // AI-classified visual style tags (set by /api/classify); enables computeStyleMatchScore
+        style_tags: vector.style_tags || undefined,
       },
       imageUrl: listing.photos?.[0] || undefined,
       description: listing.agentNotes || undefined,
     }
   })
 
-  const matches = matchListings(portrait, listings)
+  // --- Close the learning loop ---
+  // Load the buyer's evolved preference state (written by /api/feedback into the
+  // IntakeResponse.answers._preferenceState sub-key). When it exists AND has
+  // accumulated evidence, rank with the evolved weights; otherwise cold-start
+  // with the static intake weights.
+  const prefState = answers._preferenceState as PreferenceState | undefined
+  const learningActive = !!prefState && prefState.evidenceCount > 0
+
+  // Always compute the intake-weight ranking — it's the baseline we diff against
+  // to explain how learning re-ranked the list.
+  const intakeMatches = matchListings(portrait, listings)
+  const matches = learningActive
+    ? matchListingsEvolved(portrait, listings, prefState!)
+    : intakeMatches
+
+  // --- Explain the re-rank ---
+  // Build the response matches, attaching rankBoost to listings that climbed
+  // meaningfully versus the intake-weight ranking.
+  let learning: LearningSummary | null = null
+  let rankedMatches: Array<MatchResult & { rankBoost?: RankBoost }> = matches
+
+  if (learningActive) {
+    const intakePositions = new Map<string, number>()
+    intakeMatches.forEach((m, idx) => intakePositions.set(m.listing.id, idx))
+
+    // Dimensions whose weight rose vs the intake prior — these drove the boosts.
+    const risingDimensions = getSignificantChanges(prefState!)
+      .filter((c) => c.direction === "increased")
+
+    rankedMatches = matches.map((m, evolvedIdx) => {
+      const intakeIdx = intakePositions.get(m.listing.id)
+      if (intakeIdx === undefined) return m
+
+      const movedUp = intakeIdx - evolvedIdx
+      // Only annotate listings that climbed at least 2 positions — keeps the
+      // "we moved this up because..." callouts meaningful, not noisy.
+      if (movedUp < 2) return m
+
+      const reason = buildRankBoostReason(m, risingDimensions)
+      if (!reason) return m
+
+      return { ...m, rankBoost: { movedUp, reason } }
+    })
+
+    learning = {
+      active: true,
+      evidenceCount: prefState!.evidenceCount,
+      summary: buildLearningSummary(prefState!.evidenceCount),
+      shifts: buildShifts(prefState!),
+    }
+  }
 
   // Return top 20 matches
   return NextResponse.json({
-    matches: matches.slice(0, 20),
+    matches: rankedMatches.slice(0, 20),
     totalConsidered: dbListings.length,
     totalMatched: matches.length,
     relaxed,
     relaxedReason,
+    learning,
   })
+}
+
+interface RankBoost {
+  movedUp: number
+  reason: string
+}
+
+interface LearningSummary {
+  active: boolean
+  evidenceCount: number
+  summary: string
+  shifts: Array<{ dimension: string; direction: "up" | "down"; delta: number }>
+}
+
+/** Human sentence describing that ranking used learned weights. */
+function buildLearningSummary(evidenceCount: number): string {
+  const showings = evidenceCount === 1 ? "1 showing" : `${evidenceCount} showings`
+  return `Ranked using what we've learned from your ${showings}.`
+}
+
+/** Top 3 weight shifts (by magnitude) vs the intake prior. */
+function buildShifts(
+  prefState: PreferenceState
+): Array<{ dimension: string; direction: "up" | "down"; delta: number }> {
+  return getSignificantChanges(prefState)
+    .slice(0, 3)
+    .map((c) => ({
+      dimension: c.dimension,
+      direction: c.direction === "increased" ? ("up" as const) : ("down" as const),
+      delta: Math.round(Math.abs(c.delta) * 1000) / 1000,
+    }))
+}
+
+/**
+ * Build a plain-language reason a listing climbed: name the rising dimension(s)
+ * the listing actually scores well on. Falls back to the strongest rising
+ * dimension if none align, then null if the buyer has no rising dimensions.
+ */
+function buildRankBoostReason(
+  match: MatchResult,
+  risingDimensions: ReturnType<typeof getSignificantChanges>
+): string | null {
+  if (risingDimensions.length === 0) return null
+
+  // Prefer dimensions that both rose in weight AND score well on this listing.
+  const strongOnListing = risingDimensions.filter((d) => {
+    const ds = match.dimensionScores.find((s) => s.dimension === d.dimension)
+    return ds && ds.score >= 65
+  })
+
+  const drivers = (strongOnListing.length > 0 ? strongOnListing : risingDimensions).slice(0, 2)
+  const phrases = drivers.map((d) => d.dimension.toLowerCase())
+
+  if (phrases.length === 0) return null
+  const list = phrases.length === 1 ? phrases[0] : `${phrases[0]} and ${phrases[1]}`
+  return `Moved up because you keep responding to ${list}.`
 }
 
 /**

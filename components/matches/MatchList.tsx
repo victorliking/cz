@@ -5,8 +5,28 @@ import { cn } from "@/lib/utils"
 import type { MatchResult, DimensionScore } from "@/lib/scoring/match-engine"
 import { getSchoolRatingLabel } from "@/lib/geo/school-ratings"
 
+// --- Learning surface (from GET /api/matches; all fields optional, treated defensively) ---
+interface LearningShift {
+  dimension: string
+  direction: "up" | "down"
+  delta: number
+}
+interface LearningSummary {
+  active?: boolean
+  evidenceCount?: number
+  summary?: string
+  shifts?: LearningShift[]
+}
+interface RankBoost {
+  movedUp?: number
+  reason?: string
+}
+// MatchResult may carry an optional rankBoost the engine type doesn't yet declare.
+type ScoredMatch = MatchResult & { rankBoost?: RankBoost }
+
 export function MatchList() {
-  const [matches, setMatches] = useState<MatchResult[]>([])
+  const [matches, setMatches] = useState<ScoredMatch[]>([])
+  const [learning, setLearning] = useState<LearningSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
 
@@ -15,6 +35,7 @@ export function MatchList() {
       .then((r) => r.json())
       .then((d) => {
         setMatches(d.matches || [])
+        setLearning(d.learning ?? null)
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -32,6 +53,9 @@ export function MatchList() {
 
   return (
     <div className="space-y-4">
+      {/* Learning banner — only when the system actually re-ranked from showings */}
+      <LearningBanner learning={learning} />
+
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-slate-900">Your Top Matches</h2>
         <span className="text-xs text-slate-400">{matches.length} homes scored</span>
@@ -51,12 +75,60 @@ export function MatchList() {
   )
 }
 
+function LearningBanner({ learning }: { learning: LearningSummary | null }) {
+  if (!learning || !learning.active) return null
+
+  const shifts = (learning.shifts || []).filter((s) => s && s.dimension).slice(0, 3)
+  const summary = learning.summary || "Updated from your showings."
+
+  return (
+    <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+      <div className="flex items-start gap-2.5">
+        <span className="mt-0.5 shrink-0 text-base leading-none" aria-hidden>&#10024;</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-blue-900">{summary}</p>
+          {shifts.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {shifts.map((s, i) => (
+                <ShiftChip key={`${s.dimension}-${i}`} shift={s} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ShiftChip({ shift }: { shift: LearningShift }) {
+  const up = shift.direction === "up"
+  const label = humanizeDimension(shift.dimension)
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border",
+        up
+          ? "bg-green-50 text-green-700 border-green-200"
+          : "bg-amber-50 text-amber-700 border-amber-200"
+      )}
+    >
+      <span aria-hidden>{up ? "↑" : "↓"}</span>
+      {label}
+    </span>
+  )
+}
+
+function humanizeDimension(dimension: string): string {
+  // Turn snake/kebab dimension keys into a readable label, e.g. "natural_light" -> "natural light".
+  return dimension.replace(/[_-]+/g, " ").trim() || dimension
+}
+
 function MatchExplanationCard({
   match,
   isExpanded,
   onToggle,
 }: {
-  match: MatchResult
+  match: ScoredMatch
   isExpanded: boolean
   onToggle: () => void
 }) {
@@ -90,6 +162,20 @@ function MatchExplanationCard({
             <ScoreBadge score={match.score} verdict={match.verdict} />
           </div>
         </div>
+
+        {/* Rank boost — surfaces what the learner moved up and why */}
+        {match.rankBoost && (match.rankBoost.reason || (match.rankBoost.movedUp ?? 0) > 0) && (
+          <div className="mt-2 flex items-start gap-1.5 rounded-lg bg-green-50 border border-green-100 px-2.5 py-1.5">
+            <span className="mt-0.5 shrink-0 text-green-600" aria-hidden>↑</span>
+            <p className="text-xs text-green-800 font-medium leading-snug">
+              {(match.rankBoost.movedUp ?? 0) > 0 && (
+                <span>Moved up {match.rankBoost.movedUp} {match.rankBoost.movedUp === 1 ? "spot" : "spots"}</span>
+              )}
+              {(match.rankBoost.movedUp ?? 0) > 0 && match.rankBoost.reason && <span className="text-green-400"> · </span>}
+              {match.rankBoost.reason && <span className="font-normal">{match.rankBoost.reason}</span>}
+            </p>
+          </div>
+        )}
 
         {/* Quick badges row */}
         <div className="flex items-center gap-2 mt-2 flex-wrap">

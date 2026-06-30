@@ -6,6 +6,7 @@ import type { BuyerPortrait } from "@/lib/portrait/generate-portrait"
 import { ARCHETYPES } from "@/lib/portrait/generate-portrait"
 import { useI18n } from "@/lib/i18n/context"
 import { PreferenceEvolution } from "@/components/feedback/PreferenceEvolution"
+import { STYLE_EXAMPLES } from "@/lib/data/style-examples"
 
 type Tab = "profile" | "criteria" | "evolution" | "log"
 
@@ -91,9 +92,6 @@ function HomeProfile({ portrait }: { portrait: BuyerPortrait }) {
           {portrait.hardFilters.propertyTypes.length > 0 && (
             <Row label="Type" value={portrait.hardFilters.propertyTypes.join(", ")} />
           )}
-          {portrait.homePreferences?.styles.length > 0 && (
-            <Row label="Style" value={portrait.homePreferences.styles.join(", ")} />
-          )}
           {portrait.homePreferences?.era && (
             <Row label="Era" value={portrait.homePreferences.era} />
           )}
@@ -111,6 +109,11 @@ function HomeProfile({ portrait }: { portrait: BuyerPortrait }) {
           )}
         </div>
       </section>
+
+      {/* Style preferences — visual */}
+      {portrait.homePreferences?.styles?.length > 0 && (
+        <StylePreferenceVisual styles={portrait.homePreferences.styles} />
+      )}
 
       {/* What defines you */}
       {portrait.prose.length > 0 && (
@@ -450,6 +453,53 @@ function ArchetypeSection({ archetype }: { archetype: { type: string; headline: 
           )}
         </>
       )}
+    </section>
+  )
+}
+
+// --- Style preferences (visual) ---
+function StylePreferenceVisual({ styles }: { styles: string[] }) {
+  const { locale } = useI18n()
+  // Map style IDs to their visual examples; skip any we don't have a card for.
+  const matched = styles
+    .map((id) => STYLE_EXAMPLES.find((s) => s.id === id))
+    .filter((s): s is (typeof STYLE_EXAMPLES)[number] => Boolean(s))
+
+  // No visual data — fall back to a plain text row so nothing is lost.
+  if (matched.length === 0) {
+    if (styles.length === 0) return null
+    return (
+      <section>
+        <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">Style</p>
+        <p className="text-sm text-slate-700">{styles.join(", ")}</p>
+      </section>
+    )
+  }
+
+  return (
+    <section>
+      <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-3">Style You Love</p>
+      <div className="grid grid-cols-3 gap-2">
+        {matched.map((style) => (
+          <div
+            key={style.id}
+            className="relative rounded-lg overflow-hidden border border-slate-200 aspect-[4/3] bg-slate-50"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={style.photoUrl}
+              alt={style.label}
+              loading="lazy"
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+              <p className="text-white text-xs font-medium leading-tight">
+                {locale === "zh" ? style.labelZh : style.label}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
     </section>
   )
 }

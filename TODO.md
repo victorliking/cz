@@ -1,7 +1,7 @@
 # HomeMatch — Development Roadmap
 
-**Last updated:** 2026-05-05  
-**Current state:** MLS data integrated, match engine live, professional HTML report generating
+**Last updated:** 2026-06-30  
+**Current state:** Auth + agent-managed workflow live, learning loop closed (killer demo working), P0 security blockers fixed, first tests landed. Now heading toward enterprise/brokerage SaaS.
 
 ---
 
@@ -9,69 +9,100 @@
 
 - [x] Buyer intake questionnaire (18 questions, EN/ZH)
 - [x] Deterministic portrait engine (archetype + weights + insights)
-- [x] AI narrative generation (Claude Opus)
-- [x] MLS PIN data pipeline (SF, Condo, Multi-Family)
-- [x] 3,215 real listings imported (17 towns in Greater Boston)
+- [x] MLS PIN data pipeline (SF, Condo, Multi-Family); ~3,200 real listings, 17 Greater Boston towns
 - [x] Match engine scoring real MLS listings
 - [x] Professional HTML buyer report with detailed recommendations
 - [x] Agent dashboard (buyer list, search briefs)
 - [x] Viewing feedback / evolution log
 - [x] Role switching (buyer/agent)
 - [x] i18n (English + Chinese)
+- [x] **Auth** — NextAuth + Google OAuth (Prisma adapter)
+- [x] **Agent-managed buyer workflow** — agent creates/manages multiple buyers
+- [x] **Public intake links** — signed, expiring HMAC tokens; owner-gated minting
+- [x] **Agent observations** — soft-dimension scoring per showing
+- [x] **MA school district ratings** integration
+- [x] **AI listing style classification** — Sonnet 4.6 on Bedrock → `vector.style_tags`
+- [x] **AI buyer portrait** migrated to Sonnet 4.6 on Bedrock
+- [x] **Feedback loop → weight adjustment** — Bayesian learner re-weights priority dimensions
+- [x] **Learning loop closed** — `/api/matches` ranks with evolved `_preferenceState` weights and
+      explains the re-rank (`rankBoost` + `learning` object); visual style scoring wired through;
+      budget-drift detection fixed; buyer-side re-rank banner + shift chips + "Moved up N spots"
+- [x] **First unit tests** — Vitest suites for Bayesian learner, match engine, affordability, MLS field map
 
 ---
 
-## Tier 1: High Impact (This Week)
+## Tier 1: Enterprise Readiness (Now)
 
-- [ ] **Photo carousel in report** — Show 3-5 MLS photos per listing instead of just 1. All photo URLs are already in the database.
-- [ ] **Google Maps commute integration** — Calculate real commute times (drive/bike/transit) from each listing to buyer's commute anchors. Replace hardcoded defaults with actual data. API: Google Directions API or Mapbox.
-- [ ] **MLS data auto-refresh** — Set up daily automated pull from MLS PIN RETS endpoint. Mark SOLD/WITHDRAWN listings. Currently requires manual file download.
-- [ ] **School district data** — Pull real school ratings by address/zip. API: GreatSchools or static dataset. Fills a major scoring gap for family buyers.
-
----
-
-## Tier 2: Client Experience (Next Week)
-
-- [ ] **Interactive web report** — Convert static HTML report to a Next.js page at `/buyer/report`. Features: expandable listings, "Schedule Viewing" button, like/dislike rating, mobile responsive.
-- [ ] **Walk Score integration** — Add walkability/transit scores per listing. Free API. Critical for "Urbanist" archetype scoring.
-- [ ] **Side-by-side comparison** — Let buyers select 2-3 listings and compare head-to-head on every dimension.
-- [ ] **Agent scoring dashboard** — Quick form for agent to rate soft dimensions (natural light, noise, openness, yard, kitchen quality) per listing after viewings. Improves match accuracy over time.
-- [ ] **Report UI in frontend** — Render the portrait + matches directly in the web app (not just CLI/HTML export).
+- [ ] **Multi-tenancy / Brokerage tenant boundary** — add a `Brokerage` model and enforce the
+      tenant boundary on every query. The north star is selling to brokerages; today all data is flat.
+- [ ] **Rate-limit the paid-AI + matches routes** — `/api/classify`, `/api/portrait`, `/api/matches`
+      are still unthrottled. Reuse `lib/rate-limit.ts` (`rateLimit` + `getClientIp`).
+- [ ] **Distributed rate limiter** — current limiter is in-memory (per serverless instance, resets on
+      cold start). Move to Upstash/Redis for real per-tenant quotas.
+- [ ] **Rotate leaked MLS PIN credentials** — they were committed to git history; env removal does not
+      invalidate already-exposed secrets.
+- [ ] **Re-validate against ARCC governance** — credential/PII/network-exposure changes shipped without
+      ARCC (the `search_arcc` MCP tool was unavailable); re-check when reachable.
 
 ---
 
-## Tier 3: Automation & Intelligence (Week 3)
+## Tier 2: Data Correctness & Reliability
 
-- [ ] **New listing alerts** — When fresh MLS listings match active buyer profiles at 70%+, auto-notify agent via email/SMS.
-- [ ] **Feedback loop → weight adjustment** — When buyer rates a listing (love/hate/meh), automatically adjust their priority weights. System learns over time.
-- [ ] **AI-powered listing analysis** — Use Claude to read MLS descriptions and infer soft dimensions (e.g., "sun-drenched" → natural_light: 5, "quiet cul-de-sac" → noise_level: 5).
-- [ ] **Email delivery + PDF export** — Auto-email the report to buyers as a PDF after questionnaire. Professional touch.
-- [ ] **Geocoding + map view** — Geocode all listings, show on interactive map with match score color coding.
+- [ ] **Fix MLS `STATUS_MAP` mismatch** — real feed codes are `PCG`/`EXT` but the map only has
+      `PCH`/`EXP`, so they fall through to `undefined`. Add `STATUS_MAP['PCG'] = 'ACTIVE'` and
+      `STATUS_MAP['EXT']`. Tracked by `it.todo` tests in `lib/mls/field-map.test.ts`.
+- [ ] **Fix MLS `TOWN_NUM` / town-name mapping** in `sync-mls` (city is resolved from TOWN/NEIGHBORHOOD
+      fields incorrectly) — needs a dedicated data-mapping fix.
+- [ ] **MLS data auto-refresh** — daily automated pull; mark SOLD/WITHDRAWN listings.
+- [ ] **Shape-validate `_preferenceState`** — the matches route reads it as untrusted JSON; add a
+      defensive length/shape guard before `matchListingsEvolved` / `getSignificantChanges`.
+- [ ] **Broaden test coverage** — mock-`fetch` test for `fetchCurrentMortgageRate`; cover
+      `style-matcher`, `generate-portrait` archetype/blind-spot logic, and pure `feedback/*` modules.
+- [ ] **CI** — GitHub Action running `npm run test` on PRs.
 
 ---
 
-## Tier 4: Production & Growth (Month 2)
+## Tier 3: Client Experience
 
-- [ ] **Deploy to Vercel** — Push app to production with cloud PostgreSQL (Supabase free tier).
-- [ ] **Auth system** — Email magic link or Google OAuth so buyers can return to their report.
-- [ ] **Rate limiting on AI calls** — Prevent abuse of Claude API endpoints.
-- [ ] **Error monitoring** — Sentry or similar for production error tracking.
-- [ ] **Landing page** — Marketing site explaining the service for buyer acquisition.
-- [ ] **Mobile responsive** — Currently desktop-first; optimize for phone viewing.
-- [ ] **Agent onboarding flow** — Self-serve signup for other agents who want to use the system.
-- [ ] **Analytics** — Track questionnaire completion rates, drop-off points, report engagement.
+- [ ] **Photo carousel in report** — 3-5 MLS photos per listing (URLs already in DB).
+- [ ] **Google Maps commute integration** — real drive/bike/transit times from each listing to anchors.
+- [ ] **Walk Score integration** — walkability/transit scores per listing.
+- [ ] **Side-by-side comparison** — buyers compare 2-3 listings dimension-by-dimension.
+- [ ] **Friendlier shift labels** — surface `learning.shifts` / `rankBoost` using the
+      `DIMENSION_SHORT_LABELS` map (in match-engine) instead of long dimension names.
+- [ ] **New listing alerts** — auto-notify agent when fresh listings hit 70%+ for active buyers.
+- [ ] **Email delivery + PDF export** — auto-email the report after the questionnaire.
+- [ ] **Geocoding + map view** — geocode listings, show on interactive map with score color coding.
+
+---
+
+## Tier 4: Growth & Polish
+
+- [ ] **Deploy to Vercel** with cloud PostgreSQL.
+- [ ] **Broker analytics dashboard** — portfolio-level match/conversion insight for brokerages.
+- [ ] **Error monitoring** — Sentry or similar.
+- [ ] **Landing page** — marketing site for buyer/brokerage acquisition.
+- [ ] **Mobile responsive** — currently desktop-first.
+- [ ] **Agent onboarding flow** — self-serve signup for agents.
+- [ ] **Analytics** — questionnaire completion, drop-off, report engagement.
 
 ---
 
 ## Technical Debt
 
-- [ ] Remove `mock-listings.ts` — No longer needed (real data is live)
-- [ ] Unit tests for match engine
-- [ ] Unit tests for portrait generator
-- [ ] Type safety improvements (remove `as any` casts in match engine)
-- [ ] Add `mlsNumber` field to Listing schema for dedup tracking
+- [ ] Remove dead `lib/scoring/mock-listings.ts` — real data is live
+- [ ] Remove dead `BuyerProfile.preferenceWeights` column — superseded by `_preferenceState` JSON
+- [ ] Remove unused `@anthropic-ai/sdk` dependency — migrated to Bedrock (`@aws-sdk/client-bedrock-runtime`)
+- [ ] Add `rankBoost?: { movedUp: number; reason: string }` to the `MatchResult` interface so the
+      local augmentation in `MatchList.tsx` can be dropped
+- [ ] Export Bayesian constants (`BASE_LEARNING_RATE`, `MIN_WEIGHT`, `MAX_WEIGHT`, `CONFIDENCE_GROWTH`)
+      from `bayesian-learner.ts` so tests assert against the source of truth instead of re-declaring them
 - [ ] Database indexes on `city`, `listPrice`, `bedrooms` for query performance
-- [ ] AI JSON parsing error handling (sometimes fails on long responses)
+- [ ] Add `mlsNumber` field to `Listing` schema for dedup tracking
+- [ ] Type safety — remove `as any` casts in match engine
+- [ ] Remove pre-existing dead `router` variable in `app/intake/[profileId]/page.tsx`
+- [ ] Revisit `era_feel` handling if buyer intake later adds an explicit `home_era` question
+      (currently `skipInV1`, guarded but inactive)
 
 ---
 
@@ -79,11 +110,11 @@
 
 | What | Command |
 |------|---------|
-| Import MLS data | `npx tsx scripts/import-mls.ts --agent-id cmop2wajb0000xf82ntq5uf8s --types sf,cc,mf --towns Cambridge,Somerville` |
-| Generate HTML report | `npx tsx scripts/generate-html-report.ts` |
-| Generate CLI report | `npx tsx scripts/test-real-matches.ts` |
 | Run app | `npm run dev` |
-| View report | `open reports/buyer-report.html` |
+| Run tests | `npm run test` (Vitest; needs reachable npm registry to install) |
+| Import MLS data | `npx tsx scripts/import-mls.ts --agent-id <id> --types sf,cc,mf --towns Cambridge,Somerville` |
+| Generate HTML report | `npx tsx scripts/generate-html-report.ts` |
+| Test AI portrait | `npx tsx scripts/test-ai-portrait.ts` |
 
 ---
 
@@ -91,9 +122,11 @@
 
 | Date | Decision | Rationale |
 |------|----------|-----------|
-| 2025-05-03 | Direct Anthropic API over Bedrock | Simpler auth, no AWS dependency for MVP |
-| 2025-05-03 | Opus model for reports | Higher quality narrative output |
 | 2025-05-05 | MLS PIN IDX flat files over RETS API | Faster to prototype; RETS for automation later |
-| 2025-05-05 | Pre-filter in DB before scoring | Performance: 3000+ listings → only score relevant subset |
+| 2025-05-05 | Pre-filter in DB before scoring | Performance: 3000+ listings → score only relevant subset |
 | 2025-05-05 | 115% budget flex in queries | Allow slightly over-budget gems to surface |
 | 2025-05-05 | Towns-based import filter | Agent controls service area; avoids irrelevant inventory |
+| 2026-06-30 | Learned weights in `_preferenceState` JSON, not `preferenceWeights` | Zero migrations; ship the loop fast |
+| 2026-06-30 | Anthropic API → Bedrock (Sonnet 4.6) | Enterprise auth; consistent infra |
+| 2026-06-30 | Security via env vars + stateless HMAC + in-memory rate limit | Close P0 blockers with zero schema migrations |
+| 2026-06-30 | Vitest test runner | Cheapest pre-enterprise regression coverage |

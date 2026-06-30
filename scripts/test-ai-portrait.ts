@@ -1,9 +1,10 @@
 /**
- * Test script: Generate AI portrait from mock buyer answers using Opus
+ * Test script: Generate AI portrait from mock buyer answers via the real
+ * generateAINarrative() path (Claude Sonnet 4.6 on Bedrock).
  * Run: npx tsx scripts/test-ai-portrait.ts
  */
 
-import Anthropic from "@anthropic-ai/sdk"
+import { generateAINarrative } from "../lib/portrait/ai-portrait"
 
 const MOCK_ANSWERS = {
   // Step 1: Who's moving
@@ -91,90 +92,40 @@ const MOCK_ANSWERS = {
 }
 
 async function main() {
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-
-  console.log("🧠 Generating AI portrait with Claude Opus...\n")
+  console.log("🧠 Generating AI portrait with Claude Sonnet 4.6 (Bedrock)...\n")
   console.log("Mock buyer: Young Chinese-American couple, 2 kids, $900k-$1.3M, Arlington/Belmont area\n")
   console.log("---\n")
 
-  const response = await client.messages.create({
-    model: "claude-opus-4-20250514",
-    max_tokens: 2000,
-    temperature: 0.7,
-    system: `You are a senior real estate market analyst producing an objective consulting report for a home buyer. Your tone is neutral, data-driven, and professional — like McKinsey advising a client, not a salesperson pitching.
+  const result = await generateAINarrative(MOCK_ANSWERS, "zh")
 
-Core principles:
-- NEUTRAL tone. No sales language. No "beautiful", "stunning", "perfect". State facts and tradeoffs.
-- For each target area, objectively analyze: what matches their stated criteria, what does NOT match, and what the tradeoffs are.
-- Quantify everything: commute times, price ranges, school ratings, walk scores.
-- Point out contradictions between their stated preferences directly and clearly — not gently, not harshly, just factually.
-- Reference specific data from their answers to justify every conclusion.
-- Greater Boston market knowledge expected (actual neighborhood characteristics, price realities, school districts).
+  if (!result) {
+    console.error("❌ generateAINarrative returned null — Bedrock call failed (check AWS creds / model access).")
+    process.exit(1)
+  }
 
-Output language: Chinese (Simplified) since the buyer used Chinese in their free-text answers.
+  console.log("═══════════════════════════════════════════")
+  console.log("         📋 AI BUYER PORTRAIT")
+  console.log("═══════════════════════════════════════════\n")
 
-You MUST respond with ONLY valid JSON (no markdown, no explanation) in this exact format:
-{
-  "prose": ["paragraph1", "paragraph2", "paragraph3", "paragraph4"],
-  "blindSpots": ["insight1", "insight2", "insight3"],
-  "searchStrategy": "one paragraph describing exactly what to search for",
-  "personalNote": "a short factual observation that shows analytical depth"
-}
-
-Rules for each section:
-- prose: 3-4 paragraphs structured as:
-  1. NEEDS SUMMARY: Based on their answers, what are the core requirements (factual restatement, no embellishment)
-  2. AREA ANALYSIS: For each target area, state: fits (what matches), gaps (what doesn't), tradeoffs. Use a consistent format.
-  3. BUDGET REALITY: Given their requirements vs. market, what is realistic. Include specific price ranges per area for their criteria.
-  4. TIMELINE & RISK: Market conditions, competition level, what they should expect.
-- blindSpots: 3-5 logical contradictions. Each must cite the specific conflicting answers. Include quantified impact.
-- searchStrategy: One dense paragraph for the agent. Specific streets/neighborhoods, price bands, property criteria.
-- personalNote: One objective observation connecting dots between their answers — insightful, not flattering.`,
-    messages: [
-      {
-        role: "user",
-        content: `Here are the complete questionnaire answers from a home buyer in the Greater Boston area:\n\n${JSON.stringify(MOCK_ANSWERS, null, 2)}\n\nThis buyer filled out the questionnaire mixing Chinese and English. Generate your response in Chinese.\n\nAnalyze deeply. Look for contradictions between priority ranking and scenario answers, hidden needs from pain points + lifestyle choices, and anything their free-text reveals that structured questions missed.\n\nRespond with ONLY the JSON object, no other text.`,
-      },
-    ],
+  console.log("── WHAT DEFINES YOU ──\n")
+  result.prose.forEach((p: string) => {
+    console.log(`  ${p}\n`)
   })
 
-  const text = response.content[0].type === "text" ? response.content[0].text : ""
-  
-  try {
-    const jsonMatch = text.match(/\{[\s\S]*\}/)
-    if (jsonMatch) {
-      const result = JSON.parse(jsonMatch[0])
-      
-      console.log("═══════════════════════════════════════════")
-      console.log("         📋 AI BUYER PORTRAIT")
-      console.log("═══════════════════════════════════════════\n")
-      
-      console.log("── WHAT DEFINES YOU ──\n")
-      result.prose.forEach((p: string, i: number) => {
-        console.log(`  ${p}\n`)
-      })
-      
-      console.log("\n── BLIND SPOTS (你可能没意识到的) ──\n")
-      result.blindSpots.forEach((b: string, i: number) => {
-        console.log(`  ⚠️  ${b}\n`)
-      })
-      
-      console.log("\n── SEARCH STRATEGY ──\n")
-      console.log(`  🎯 ${result.searchStrategy}\n`)
-      
-      console.log("\n── A NOTE FOR YOU ──\n")
-      console.log(`  💬 ${result.personalNote}\n`)
-      
-      console.log("\n═══════════════════════════════════════════")
-      console.log("Raw JSON output:")
-      console.log(JSON.stringify(result, null, 2))
-    } else {
-      console.log("Raw response:", text)
-    }
-  } catch (e) {
-    console.log("Parse error. Raw response:")
-    console.log(text)
-  }
+  console.log("\n── BLIND SPOTS (你可能没意识到的) ──\n")
+  result.blindSpots.forEach((b: string) => {
+    console.log(`  ⚠️  ${b}\n`)
+  })
+
+  console.log("\n── SEARCH STRATEGY ──\n")
+  console.log(`  🎯 ${result.searchStrategy}\n`)
+
+  console.log("\n── A NOTE FOR YOU ──\n")
+  console.log(`  💬 ${result.personalNote}\n`)
+
+  console.log("\n═══════════════════════════════════════════")
+  console.log("Raw JSON output:")
+  console.log(JSON.stringify(result, null, 2))
 }
 
 main().catch(console.error)

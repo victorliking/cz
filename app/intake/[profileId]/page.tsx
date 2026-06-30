@@ -1,18 +1,35 @@
 "use client"
 
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { IntakeWizard } from "@/components/intake/IntakeWizard"
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 
 export default function PublicIntakePage() {
+  // useSearchParams requires a Suspense boundary during static generation.
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          <p className="text-slate-500">Loading...</p>
+        </div>
+      }
+    >
+      <PublicIntakeInner />
+    </Suspense>
+  )
+}
+
+function PublicIntakeInner() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const profileId = params.profileId as string
+  const token = searchParams.get("t") || ""
   const [valid, setValid] = useState<boolean | null>(null)
   const [completed, setCompleted] = useState(false)
 
   useEffect(() => {
-    fetch(`/api/intake/validate?profileId=${profileId}`)
+    fetch(`/api/intake/validate?profileId=${profileId}&t=${encodeURIComponent(token)}`)
       .then((res) => res.json())
       .then((data) => {
         if (data.valid) {
@@ -23,13 +40,13 @@ export default function PublicIntakePage() {
         }
       })
       .catch(() => setValid(false))
-  }, [profileId])
+  }, [profileId, token])
 
   const handleComplete = async (answers: Record<string, unknown>) => {
     const res = await fetch("/api/intake/public-submit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ answers, buyerProfileId: profileId }),
+      body: JSON.stringify({ answers, buyerProfileId: profileId, token }),
     })
 
     if (!res.ok) {
