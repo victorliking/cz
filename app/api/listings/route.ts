@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { validateVector } from "@/lib/vector-schema"
 import { getSchoolRatingNumber } from "@/lib/geo/school-ratings"
 import { getApiUser } from "@/lib/auth"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
   const apiUser = await getApiUser(request)
@@ -81,6 +82,17 @@ export async function GET(request: NextRequest) {
   const userId = apiUser?.id
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  }
+
+  const rl = rateLimit(`listings-list:${userId ?? getClientIp(request)}`, {
+    limit: 60,
+    windowMs: 60_000,
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    )
   }
 
   const { searchParams } = new URL(request.url)

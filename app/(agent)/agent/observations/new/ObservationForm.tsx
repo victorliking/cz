@@ -60,15 +60,30 @@ export function ObservationForm() {
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState("")
+  const [listingsError, setListingsError] = useState("")
+
+  async function loadListings() {
+    setListingsError("")
+    try {
+      const res = await fetch("/api/listings")
+      if (!res.ok) {
+        setListingsError(
+          res.status === 429
+            ? "Too many requests — please wait a moment and try again."
+            : "Couldn't load your listings — you can still enter an address manually."
+        )
+        return
+      }
+      const data = await res.json()
+      // Tolerant of both the new { listings } envelope and a bare array.
+      setListings(Array.isArray(data) ? data : (data.listings ?? []))
+    } catch {
+      setListingsError("Couldn't load your listings — you can still enter an address manually.")
+    }
+  }
 
   useEffect(() => {
-    fetch("/api/listings")
-      .then((r) => r.json())
-      .then((data) => {
-        // Tolerant of both the new { listings } envelope and a bare array.
-        setListings(Array.isArray(data) ? data : (data.listings ?? []))
-      })
-      .catch(() => {})
+    loadListings()
   }, [])
 
   function toggleChip(value: string, selected: string[], setSelected: (v: string[]) => void) {
@@ -172,6 +187,19 @@ export function ObservationForm() {
               <p className="text-xs mb-4" style={{ color: "#86868b" }}>
                 Select from your listings or enter an address manually.
               </p>
+
+              {listingsError && (
+                <div className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+                  <p className="text-xs text-amber-800">{listingsError}</p>
+                  <button
+                    type="button"
+                    onClick={loadListings}
+                    className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg border border-amber-300 hover:bg-amber-100 text-amber-800 transition-all"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
 
               {listings.length > 0 && (
                 <select

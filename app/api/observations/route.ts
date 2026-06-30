@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { getApiUser } from "@/lib/auth"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 import {
   initializeFromIntake,
   updateWeights,
@@ -106,6 +107,17 @@ export async function POST(request: NextRequest) {
   const apiUser = await getApiUser(request)
   if (!apiUser || apiUser.role !== "AGENT") {
     return NextResponse.json({ error: "Not authenticated as agent" }, { status: 401 })
+  }
+
+  const rl = rateLimit(`observations:${apiUser.id || getClientIp(request)}`, {
+    limit: 30,
+    windowMs: 60_000,
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    )
   }
 
   const body = await request.json()

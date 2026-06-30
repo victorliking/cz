@@ -60,6 +60,48 @@ export interface PreferenceState {
   evidenceCount: number
 }
 
+// --- Validation ---
+
+/** True iff `w` is a well-formed DimensionWeight (dimension string + finite numeric weight). */
+function isDimensionWeight(w: unknown): w is DimensionWeight {
+  if (typeof w !== "object" || w === null) return false
+  const dw = w as Record<string, unknown>
+  return (
+    typeof dw.dimension === "string" &&
+    typeof dw.weight === "number" &&
+    Number.isFinite(dw.weight)
+  )
+}
+
+/**
+ * Runtime shape guard for PreferenceState read from untrusted JSON
+ * (IntakeResponse.answers._preferenceState is buyer-influenced and not schema-validated).
+ *
+ * Verifies the invariant the scoring code relies on: `current` and `prior` are
+ * arrays of EQUAL length, every element is a well-formed DimensionWeight
+ * (dimension:string + finite weight:number), and `evidenceCount` is a finite
+ * number. Callers should treat a `false` result as "no learned state" and fall
+ * back to the static intake weights rather than risk a throw downstream.
+ */
+export function isValidPreferenceState(x: unknown): x is PreferenceState {
+  if (typeof x !== "object" || x === null) return false
+  const s = x as Record<string, unknown>
+
+  if (!Array.isArray(s.current) || !Array.isArray(s.prior)) return false
+  if (s.current.length !== s.prior.length) return false
+
+  if (typeof s.evidenceCount !== "number" || !Number.isFinite(s.evidenceCount)) return false
+
+  for (const w of s.current) {
+    if (!isDimensionWeight(w)) return false
+  }
+  for (const w of s.prior) {
+    if (!isDimensionWeight(w)) return false
+  }
+
+  return true
+}
+
 // --- Constants ---
 
 /** Base learning rate — how much a single feedback shifts weights */
@@ -328,6 +370,9 @@ export function getSignificantChanges(
   for (let i = 0; i < state.current.length; i++) {
     const curr = state.current[i]
     const prior = state.prior[i]
+    // Defensive: a ragged state (prior shorter than current, or a malformed
+    // element) must never throw here — skip dimensions we can't compare.
+    if (!prior || typeof prior.weight !== "number") continue
     const delta = curr.weight - prior.weight
 
     if (Math.abs(delta) >= threshold) {

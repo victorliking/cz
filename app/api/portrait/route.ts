@@ -3,12 +3,24 @@ import { prisma } from "@/lib/prisma"
 import { generatePortrait } from "@/lib/portrait/generate-portrait"
 import { generateAINarrative } from "@/lib/portrait/ai-portrait"
 import { getApiUser } from "@/lib/auth"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
   const apiUser = await getApiUser(request)
   const userId = apiUser?.id
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  }
+
+  const rl = rateLimit(`portrait:${userId ?? getClientIp(request)}`, {
+    limit: 10,
+    windowMs: 60_000,
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    )
   }
 
   const profile = await prisma.buyerProfile.findFirst({

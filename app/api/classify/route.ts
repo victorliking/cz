@@ -18,6 +18,7 @@ import type { Prisma } from "@prisma/client"
 import { prisma } from "@/lib/prisma"
 import { getApiUser } from "@/lib/auth"
 import { classifyStyle } from "@/lib/vision/classify-style"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 export async function POST(request: NextRequest) {
   // --- Auth: CRON_SECRET or authenticated AGENT ---
@@ -25,6 +26,7 @@ export async function POST(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET
 
   let authorized = false
+  let userId: string | undefined
 
   // Check CRON_SECRET
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
@@ -36,11 +38,23 @@ export async function POST(request: NextRequest) {
     const user = await getApiUser(request)
     if (user && (user.role === "AGENT" || user.role === "ADMIN")) {
       authorized = true
+      userId = user.id
     }
   }
 
   if (!authorized) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
+  const rl = rateLimit(`classify:${userId ?? getClientIp(request)}`, {
+    limit: 15,
+    windowMs: 60_000,
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    )
   }
 
   // --- Parse body ---

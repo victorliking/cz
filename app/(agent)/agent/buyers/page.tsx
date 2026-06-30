@@ -20,14 +20,28 @@ export default function AgentBuyersPage() {
   const [formData, setFormData] = useState({ name: "", email: "", phone: "", notes: "" })
   const [submitting, setSubmitting] = useState(false)
   const [copied, setCopied] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   const fetchBuyers = async () => {
-    const res = await fetch("/api/buyers/list")
-    if (res.ok) {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch("/api/buyers/list")
+      if (!res.ok) {
+        setError(
+          res.status === 429
+            ? "Too many requests — please wait a moment and try again."
+            : "Couldn't load buyers — please refresh."
+        )
+        return
+      }
       const data = await res.json()
       setBuyers(data.buyers)
+    } catch {
+      setError("Couldn't load buyers — please refresh.")
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   useEffect(() => { fetchBuyers() }, [])
@@ -96,6 +110,18 @@ export default function AgentBuyersPage() {
       </div>
       <p className="text-[#86868b] mb-8">Manage buyers and share intake links.</p>
 
+      {error && (
+        <div className="mb-8 flex items-center justify-between gap-4 rounded-2xl bg-amber-50 border border-amber-200 px-5 py-4">
+          <p className="text-sm text-amber-800">{error}</p>
+          <button
+            onClick={fetchBuyers}
+            className="shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg border border-amber-300 hover:bg-amber-100 text-amber-800 transition-all"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {showForm && (
         <form onSubmit={handleAddBuyer} className="mb-8 p-6 bg-[#f5f5f7] rounded-2xl space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -149,7 +175,7 @@ export default function AgentBuyersPage() {
         </form>
       )}
 
-      {buyers.length === 0 && !showForm && (
+      {buyers.length === 0 && !showForm && !error && (
         <div className="border border-dashed border-slate-200 rounded-2xl p-12 text-center">
           <p className="text-[#86868b] mb-4">No buyers yet. Add your first buyer to get started.</p>
           <Button

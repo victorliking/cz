@@ -3,12 +3,24 @@ import { prisma } from "@/lib/prisma"
 import { generatePreferenceReport } from "@/lib/scoring/preference-report"
 import type { PreferenceState } from "@/lib/scoring/bayesian-learner"
 import { getApiUser } from "@/lib/auth"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
   const apiUser = await getApiUser(request)
   const userId = apiUser?.id
   if (!userId) {
     return NextResponse.json({ report: null, feedbackCount: 0, hasEnoughData: false })
+  }
+
+  const rl = rateLimit(`preference-evolution:${userId ?? getClientIp(request)}`, {
+    limit: 30,
+    windowMs: 60_000,
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    )
   }
 
   const profile = await prisma.buyerProfile.findFirst({

@@ -3,14 +3,26 @@ import { prisma } from "@/lib/prisma"
 import { generatePortrait } from "@/lib/portrait/generate-portrait"
 import { matchListings, matchListingsEvolved, ListingForMatch, MatchResult } from "@/lib/scoring/match-engine"
 import { getSchoolRatingNumber } from "@/lib/geo/school-ratings"
-import { getSignificantChanges, type PreferenceState } from "@/lib/scoring/bayesian-learner"
+import { getSignificantChanges, isValidPreferenceState, type PreferenceState } from "@/lib/scoring/bayesian-learner"
 import { getApiUser } from "@/lib/auth"
+import { rateLimit, getClientIp } from "@/lib/rate-limit"
 
 export async function GET(request: NextRequest) {
   const apiUser = await getApiUser(request)
   const userId = apiUser?.id
   if (!userId) {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 })
+  }
+
+  const rl = rateLimit(`matches:${userId ?? getClientIp(request)}`, {
+    limit: 30,
+    windowMs: 60_000,
+  })
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    )
   }
 
   const profile = await prisma.buyerProfile.findFirst({
@@ -92,7 +104,7 @@ export async function GET(request: NextRequest) {
   // IntakeResponse.answers._preferenceState sub-key). When it exists AND has
   // accumulated evidence, rank with the evolved weights; otherwise cold-start
   // with the static intake weights.
-  const prefState = answers._preferenceState as PreferenceState | undefined
+  const prefState = isValidPreferenceState(answers._preferenceState) ? answers._preferenceState : undefined
   const learningActive = !!prefState && prefState.evidenceCount > 0
 
   // Always compute the intake-weight ranking — it's the baseline we diff against
