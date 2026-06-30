@@ -12,6 +12,8 @@ import { generateInsights, type GeneratedInsight } from "@/lib/insights/generate
 import type { FeedbackHistory } from "@/lib/insights/mismatch-detector"
 import { getApiUser } from "@/lib/auth"
 import { rateLimit, getClientIp } from "@/lib/rate-limit"
+import { resolveListingForFeedback } from "@/lib/recommendations/resolve-listing"
+import type { GutReaction, Prisma } from "@prisma/client"
 
 export interface ShowingFeedbackEntry {
   id: string
@@ -78,6 +80,11 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json()
   const { address, liked, disliked, verdict, notes, adjustments, listingDimensions, buyerProfileId } = body
+  // Optional real listing id + raw chip labels — used only by the additive
+  // Feedback-table tracking below. The legacy _feedback/learning path ignores them.
+  const bodyListingId = typeof body.listingId === "string" ? body.listingId : undefined
+  const likedChips: string[] = Array.isArray(body.likedChips) ? body.likedChips : []
+  const dislikedChips: string[] = Array.isArray(body.dislikedChips) ? body.dislikedChips : []
   // Price of the shown home, if the caller provides it (field name varies).
   const bodyListPrice =
     typeof body.listPrice === "number" ? body.listPrice
@@ -158,6 +165,25 @@ export async function POST(request: NextRequest) {
     data: { answers: updatedAnswers as any },
   })
 
+  // --- Additive Feedback-table tracking (journey timeline) ---
+  // Pin this feedback to a real listingId and record a structured Feedback row
+  // so the recommendation journey timeline can read it. This is purely additive
+  // on top of the _feedback JSON / Bayesian path above — any failure here must
+  // never break that path, so the whole block is best-effort and swallowed.
+  try {
+    await recordFeedbackRow({
+      buyerProfileId: profile.id,
+      listingId: bodyListingId,
+      address: entry.address,
+      verdict: entry.verdict,
+      notes: entry.notes,
+      likedChips,
+      dislikedChips,
+    })
+  } catch (err) {
+    console.error("[feedback] additive Feedback-table tracking failed:", err)
+  }
+
   // --- Insight Generation (post Bayesian update) ---
   let newInsights: GeneratedInsight[] = []
   if (prefState && prefState.evidenceCount >= 3) {
@@ -200,6 +226,72 @@ export async function POST(request: NextRequest) {
       verificationQuestions: preferenceReport.verificationQuestions,
     } : null,
     insights: newInsights.length > 0 ? newInsights : null,
+  })
+}
+
+/**
+ * Map the lightweight verdict to the Feedback.gutReaction enum.
+ * The form only emits love/like/neutral/dislike; "neutral" maps to MEH.
+ * (The schema also has HATE, but the form never produces it.)
+ */
+const VERDICT_TO_GUT_REACTION: Record<string, GutReaction> = {
+  love: "LOVE",
+  like: "LIKE",
+  neutral: "MEH",
+  dislike: "DISLIKE",
+}
+
+function verdictToGutReaction(verdict: string): GutReaction {
+  return VERDICT_TO_GUT_REACTION[verdict] ?? "MEH"
+}
+
+/**
+ * Best-effort: resolve the real listing for a feedback entry, write a structured
+ * Feedback table row, and stamp the matching Recommendation as shown. Callers
+ * wrap this in try/catch — it must not affect the legacy learning path.
+ */
+async function recordFeedbackRow(args: {
+  buyerProfileId: string
+  listingId?: string
+  address?: string
+  verdict: string
+  notes?: string
+  likedChips: string[]
+  dislikedChips: string[]
+}): Promise<void> {
+  const { buyerProfileId, verdict, notes, likedChips, dislikedChips } = args
+
+  const listingId = await resolveListingForFeedback(buyerProfileId, {
+    listingId: args.listingId,
+    address: args.address,
+  })
+  // No real listing to attribute to — leave the legacy path as the only record.
+  if (!listingId) return
+
+  const oneLineReaction = notes && notes.trim().length > 0 ? notes.trim() : null
+  const shownChips = { liked: likedChips, disliked: dislikedChips }
+
+  await prisma.feedback.create({
+    data: {
+      buyerProfileId,
+      listingId,
+      gutReaction: verdictToGutReaction(verdict),
+      oneLineReaction,
+      shownChips: shownChips as Prisma.InputJsonValue,
+      likedDimensions: likedChips,
+      dislikedDimensions: dislikedChips,
+    },
+  })
+
+  // Stamp the recommendation(s) for this buyer+listing as shown so the timeline
+  // knows "recommended → shown → reacted". Only stamp ones not already stamped.
+  await prisma.recommendation.updateMany({
+    where: {
+      listingId,
+      shownToBuyerAt: null,
+      batch: { buyerProfileId },
+    },
+    data: { shownToBuyerAt: new Date() },
   })
 }
 

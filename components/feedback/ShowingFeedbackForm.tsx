@@ -15,6 +15,14 @@ interface ShowingFeedbackFormProps {
   listingDimensions?: Record<string, number>
   /** Pre-fill the address (e.g. the listing the buyer picked) and lock editing. */
   presetAddress?: string
+  /**
+   * The real Listing id this feedback is for, when the form was opened against a
+   * specific recommended home. Passed through to POST /api/feedback so signals
+   * can be attributed to an actual listingId (and the recommendation can be
+   * stamped as shown). When absent, the API falls back to address resolution and
+   * the free-text-address path keeps working.
+   */
+  listingId?: string
   onSubmitted?: (data: { entry: any; preferenceEvolution: any }) => void
 }
 
@@ -29,6 +37,7 @@ export function ShowingFeedbackForm({
   buyerProfileId,
   listingDimensions,
   presetAddress,
+  listingId,
   onSubmitted,
 }: ShowingFeedbackFormProps) {
   const [address, setAddress] = useState(presetAddress ?? "")
@@ -63,11 +72,18 @@ export function ShowingFeedbackForm({
       address: address.trim(),
       liked: chipsToKeywordString(likedChips),
       disliked: chipsToKeywordString(dislikedChips),
+      // Raw chip labels travel alongside the keyword strings so the API can
+      // record exactly which chips were shown/picked on the Feedback row.
+      likedChips,
+      dislikedChips,
       verdict,
       notes,
       adjustments,
     }
     if (buyerProfileId) body.buyerProfileId = buyerProfileId
+    // When the form was opened against a specific recommended home, attribute
+    // the feedback to that real listing (in addition to the typed address).
+    if (listingId) body.listingId = listingId
     // Pass the shown home's dimension scores so the learner can boost the
     // dimensions a loved/liked home actually scored well on.
     if (listingDimensions && Object.keys(listingDimensions).length > 0) {
@@ -288,6 +304,9 @@ export function BuyerLogShowing() {
   const usingOther = selectedId === "__other__"
   const presetAddress = selected?.address
   const listingDimensions = selected?.listingDimensions
+  // A picked match carries its real listing id, so feedback is attributed to the
+  // actual recommended home rather than just the typed address.
+  const selectedListingId = selected?.id
   // A matched home is preset (address locked); the "other" path lets the form
   // own an editable address field, so it's always ready to show.
   const canShowForm = Boolean(selected) || usingOther
@@ -377,6 +396,7 @@ export function BuyerLogShowing() {
           key={selectedId || "none"}
           presetAddress={presetAddress}
           listingDimensions={listingDimensions}
+          listingId={selectedListingId}
           onSubmitted={() => setJustSaved(true)}
         />
       )}

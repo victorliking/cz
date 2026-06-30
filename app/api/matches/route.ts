@@ -7,6 +7,7 @@ import { normalizeTargetCities } from "@/lib/data/ma-towns"
 import { getSignificantChanges, isValidPreferenceState, type PreferenceState } from "@/lib/scoring/bayesian-learner"
 import { getApiUser } from "@/lib/auth"
 import { rateLimit, getClientIp } from "@/lib/rate-limit"
+import { saveRecommendationBatch } from "@/lib/recommendations/persist"
 
 export async function GET(request: NextRequest) {
   const apiUser = await getApiUser(request)
@@ -176,6 +177,16 @@ export async function GET(request: NextRequest) {
     const dbListing = dbById.get(m.listing.id)
     return {
       ...m,
+      // Flat fields the agent UI POSTs verbatim to /api/recommendations when it
+      // persists a batch. Kept alongside the existing nested `listing`/score so
+      // the buyer-facing match cards are unaffected.
+      listingId: m.listing.id,
+      rationale: {
+        verdict: m.verdict,
+        reasons: m.reasons,
+        concerns: m.concerns,
+        dimensionScores: m.dimensionScores,
+      },
       listing: {
         ...m.listing,
         photos: dbListing?.photos ?? [],
@@ -183,6 +194,19 @@ export async function GET(request: NextRequest) {
       },
     }
   })
+
+  // --- Persist a recommendation batch (guarded, additive) ---
+  // Snapshot the top recommendations into the RecommendationBatch history so the
+  // agent's journey timeline reflects what was actually recommended over time.
+  // Guarded so repeatedly viewing matches doesn't spam rows: only save when the
+  // top set's listing ids differ from the most recent batch (or none exists).
+  // Fire-and-forget + try/catch so it can NEVER break the matches response.
+  const topForBatch = responseMatches.slice(0, 10)
+  if (topForBatch.length > 0) {
+    persistBatchIfChanged(profile.id, topForBatch).catch((e) =>
+      console.error("[matches] recommendation batch persist failed:", e)
+    )
+  }
 
   // Return top 20 matches
   return NextResponse.json({
@@ -192,6 +216,38 @@ export async function GET(request: NextRequest) {
     relaxed,
     relaxedReason: relaxedReason ?? null,
     learning,
+  })
+}
+
+/**
+ * Save a recommendation batch only if the top set changed since the last one.
+ * Compares the ordered listing-id signature against the most recent batch for
+ * this buyer, so identical re-views are no-ops but a new/re-ranked set is
+ * captured. Never throws (callers fire-and-forget).
+ */
+async function persistBatchIfChanged(
+  buyerProfileId: string,
+  top: Array<{ listingId: string; score: number; rationale: any }>
+): Promise<void> {
+  const signature = top.map((t) => t.listingId).join(",")
+
+  const last = await prisma.recommendationBatch.findFirst({
+    where: { buyerProfileId },
+    orderBy: { createdAt: "desc" },
+    include: { recommendations: { orderBy: { score: "desc" }, select: { listingId: true } } },
+  })
+  if (last) {
+    const lastSig = last.recommendations.map((r) => r.listingId).join(",")
+    if (lastSig === signature) return // unchanged — don't spam history
+  }
+
+  await saveRecommendationBatch({
+    buyerProfileId,
+    matches: top.map((t) => ({
+      listingId: t.listingId,
+      score: t.score,
+      rationale: t.rationale,
+    })),
   })
 }
 
