@@ -1,7 +1,25 @@
 # HomeMatch — Development Roadmap
 
 **Last updated:** 2026-06-30  
-**Current state:** Auth + agent-managed workflow live, learning loop closed (killer demo working), P0 security blockers fixed, first tests landed. Now heading toward enterprise/brokerage SaaS.
+**Current state:** Auth + agent-managed workflow live, learning loop closed (killer demo working), P0 security blockers fixed, tests landed. UX/data-quality wave shipped (photos everywhere, identity bug fixed, shared MLS inventory visible, match-scoring honesty, buyer chip-feedback loop). Now heading toward enterprise/brokerage SaaS.
+
+### Shipped 2026-06-30 (UX + data quality wave)
+- [x] Fixed dashboard-count-vs-empty-list identity bug (token.id ??= token.sub)
+- [x] Property photos render across match cards, listing detail, listings list (graceful placeholders)
+- [x] Real listingUrl external links (honest Redfin-search fallback)
+- [x] School rating + natural light promoted to Key Facts; "Agent Notes" relabeled MLS description
+- [x] Shared MLS inventory now visible to all agents (was empty page)
+- [x] Match scoring no longer bluffs confident scores on missing data
+- [x] Buyer guided chip-feedback flow feeds the learner (was unparseable free-text)
+- [x] Decision points (blindSpots) rendered; deterministic portrait fallback no longer looks broken
+- [x] MLS cron data bugs (PCG/EXT status, TOWN_NUM resolution) fixed earlier same day
+
+### Known follow-ups (non-blocking)
+- [ ] `victorboyuli@gmail.com` is role BUYER — visit /switch to become AGENT (on allowlist)
+- [ ] Multi-tenancy: shared inventory is currently "any AGENT-role user" not a real Brokerage/Org boundary
+- [ ] Add scoped Bedrock IAM key to light up AI portrait narrative
+- [ ] /switch BUYER path creates a self-managed buyerProfile (minor orphan)
+- [ ] Trim/optimize 18-question intake to reduce mid-funnel drop-off
 
 ---
 
