@@ -43,6 +43,13 @@ interface MatchListProps {
   relaxedReason?: string | null
 }
 
+// Cached state for the on-demand "Why this home fits you" explanation, keyed by
+// listing id. `status` gates fetching: we only ever fetch on an explicit click
+// (cost control), and a cached "done" entry is never re-fetched (never re-bills).
+type WhyEntry =
+  | { status: "loading" }
+  | { status: "done"; paragraph: string | null }
+
 export function MatchList({ relaxed: relaxedProp, relaxedReason: relaxedReasonProp }: MatchListProps = {}) {
   const [matches, setMatches] = useState<ScoredMatch[]>([])
   const [learning, setLearning] = useState<LearningSummary | null>(null)
@@ -51,6 +58,42 @@ export function MatchList({ relaxed: relaxedProp, relaxedReason: relaxedReasonPr
   const [intakeComplete, setIntakeComplete] = useState(true)
   const [loading, setLoading] = useState(true)
   const [expanded, setExpanded] = useState<string | null>(null)
+  // Cache lives at the list level (not per-card) so that collapsing/re-expanding
+  // a card — which unmounts the expanded section — never loses the result or
+  // re-triggers a paid Bedrock call.
+  const [whyCache, setWhyCache] = useState<Record<string, WhyEntry>>({})
+
+  const fetchWhy = (listingId: string) => {
+    // Only fetch on explicit request, and never re-fetch a listing we already
+    // have (loading or done) — this is the per-(listing) cache / rate guard.
+    let shouldFetch = false
+    setWhyCache((prev) => {
+      if (prev[listingId]) return prev
+      shouldFetch = true
+      return { ...prev, [listingId]: { status: "loading" } }
+    })
+    if (!shouldFetch) return
+    fetch("/api/why-this-home", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ listingId }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { paragraph?: string | null }) => {
+        setWhyCache((prev) => ({
+          ...prev,
+          [listingId]: { status: "done", paragraph: d?.paragraph ?? null },
+        }))
+      })
+      .catch(() => {
+        // Any failure degrades gracefully: mark done with a null paragraph so the
+        // card renders nothing extra and the deterministic reasons remain.
+        setWhyCache((prev) => ({
+          ...prev,
+          [listingId]: { status: "done", paragraph: null },
+        }))
+      })
+  }
 
   useEffect(() => {
     fetch("/api/matches")
@@ -116,6 +159,8 @@ export function MatchList({ relaxed: relaxedProp, relaxedReason: relaxedReasonPr
             match={match}
             isExpanded={expanded === match.listing.id}
             onToggle={() => setExpanded(expanded === match.listing.id ? null : match.listing.id)}
+            why={whyCache[match.listing.id]}
+            onWhy={() => fetchWhy(match.listing.id)}
           />
         ))}
       </div>
@@ -190,10 +235,14 @@ function MatchExplanationCard({
   match,
   isExpanded,
   onToggle,
+  why,
+  onWhy,
 }: {
   match: ScoredMatch
   isExpanded: boolean
   onToggle: () => void
+  why?: WhyEntry
+  onWhy: () => void
 }) {
   const formatPrice = (price: number) => {
     if (price >= 1000000) return `$${(price / 1000000).toFixed(2)}M`
@@ -323,6 +372,10 @@ function MatchExplanationCard({
       {/* Expanded section */}
       {isExpanded && (
         <div className="px-4 pb-4 pt-0 border-t mx-4 mt-0 pt-3 space-y-4">
+          {/* AI "Why this home is right for you" — on-demand, presentation-only.
+              Sits ABOVE the deterministic reasons and never replaces them. */}
+          <WhyThisHome why={why} onWhy={onWhy} />
+
           {/* Full reasons */}
           {match.reasons.length > 2 && (
             <div>
@@ -400,6 +453,57 @@ function MatchExplanationCard({
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function WhyThisHome({ why, onWhy }: { why?: WhyEntry; onWhy: () => void }) {
+  // Idle: show the affordance. A click is the ONLY trigger for the (paid) call.
+  if (!why) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onWhy()
+        }}
+        className="inline-flex items-center gap-1.5 text-xs font-medium text-violet-700 hover:text-violet-900 transition-all"
+      >
+        <span aria-hidden>&#10024;</span>
+        Why this home fits you
+      </button>
+    )
+  }
+
+  // Loading: a subtle, non-blocking "thinking…" skeleton.
+  if (why.status === "loading") {
+    return (
+      <div className="rounded-xl border border-violet-100 bg-violet-50 p-3">
+        <div className="flex items-center gap-2 text-xs font-medium text-violet-700">
+          <span aria-hidden className="animate-pulse">&#10024;</span>
+          <span>Thinking about why this home fits you&hellip;</span>
+        </div>
+        <div className="mt-2 space-y-1.5" aria-hidden>
+          <div className="h-2.5 w-full rounded-full bg-violet-100 animate-pulse" />
+          <div className="h-2.5 w-11/12 rounded-full bg-violet-100 animate-pulse" />
+          <div className="h-2.5 w-2/3 rounded-full bg-violet-100 animate-pulse" />
+        </div>
+      </div>
+    )
+  }
+
+  // Done but no paragraph (creds absent, call failed, or model declined):
+  // render NOTHING extra — the deterministic reasons below stand on their own.
+  if (!why.paragraph) return null
+
+  // Success: soft highlighted callout with a small ✨ header.
+  return (
+    <div className="rounded-xl border border-violet-100 bg-violet-50 p-3.5">
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-violet-800 mb-1.5">
+        <span aria-hidden>&#10024;</span>
+        Why this home is right for you
+      </p>
+      <p className="text-xs text-violet-900/90 leading-relaxed">{why.paragraph}</p>
     </div>
   )
 }
