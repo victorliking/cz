@@ -28,52 +28,63 @@ export async function generateAINarrative(
   const systemPrompt = buildSystemPrompt(locale)
   const userPrompt = buildUserPrompt(answers, locale)
 
+  // max_tokens raised to 4000: the JSON carries 3-4 prose paragraphs + blindSpots
+  // + searchStrategy + personalNote, which can exceed 2000 tokens and get
+  // truncated mid-object (→ unparseable JSON → silent null). 4000 gives headroom.
   const text = await generateAI({
     system: systemPrompt,
     messages: [{ role: "user", content: userPrompt }],
-    maxTokens: 2000,
+    maxTokens: 4000,
   })
   if (!text) return null // no credential / API failure → deterministic prose
 
-  try {
-
-    // Extract JSON from response — handle markdown wrapping and malformed JSON
-    let jsonStr = text.trim()
-    // Remove markdown code fences if present
-    jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "")
-    // Find outermost JSON object
-    const start = jsonStr.indexOf("{")
-    const end = jsonStr.lastIndexOf("}")
-    if (start === -1 || end === -1) return null
-    jsonStr = jsonStr.slice(start, end + 1)
-
-    // Try to fix common JSON issues (unescaped newlines in strings)
-    jsonStr = jsonStr.replace(/[\r\n]+/g, "\\n")
-    // But re-add structural newlines between properties
-    jsonStr = jsonStr.replace(/\\n\s*"/g, '\n"')
-    jsonStr = jsonStr.replace(/\\n\s*}/g, '\n}')
-    jsonStr = jsonStr.replace(/\\n\s*]/g, '\n]')
-    jsonStr = jsonStr.replace(/\[\s*\\n/g, '[\n')
-    jsonStr = jsonStr.replace(/{\s*\\n/g, '{\n')
-
-    let parsed: any
-    try {
-      parsed = JSON.parse(jsonStr)
-    } catch {
-      // Last resort: try to evaluate the original slice
-      const rawSlice = text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)
-      parsed = JSON.parse(rawSlice)
-    }
-    return {
-      prose: parsed.prose || [],
-      blindSpots: parsed.blindSpots || [],
-      searchStrategy: parsed.searchStrategy || "",
-      personalNote: parsed.personalNote || "",
-    }
-  } catch (error) {
-    console.error("[AI Portrait] Generation failed:", error)
+  const parsed = parsePortraitJson(text)
+  if (!parsed) {
+    console.error("[AI Portrait] Could not parse model JSON — falling back to deterministic prose")
     return null
   }
+  return {
+    prose: Array.isArray(parsed.prose) ? parsed.prose : [],
+    blindSpots: Array.isArray(parsed.blindSpots) ? parsed.blindSpots : [],
+    searchStrategy: typeof parsed.searchStrategy === "string" ? parsed.searchStrategy : "",
+    personalNote: typeof parsed.personalNote === "string" ? parsed.personalNote : "",
+  }
+}
+
+/**
+ * Robustly parse the model's JSON portrait. Strips markdown fences, slices the
+ * outermost object, and — only if a direct parse fails — escapes raw control
+ * characters that appear INSIDE string values (the common failure: the model
+ * puts literal newlines/tabs inside prose strings, which is invalid JSON).
+ * Unlike a blanket newline→\\n replace, this preserves structural whitespace, so
+ * JSON.parse still sees a well-formed object. Returns null if truly unparseable.
+ */
+function parsePortraitJson(text: string): Record<string, any> | null {
+  let s = text.trim().replace(/^```(?:json)?\s*\n?/i, "").replace(/\n?```\s*$/i, "")
+  const start = s.indexOf("{")
+  const end = s.lastIndexOf("}")
+  if (start === -1 || end === -1 || end < start) return null
+  s = s.slice(start, end + 1)
+
+  // Attempt 1: direct parse (most well-behaved responses).
+  try { return JSON.parse(s) } catch { /* fall through to repair */ }
+
+  // Attempt 2: escape raw control chars that occur inside string literals only.
+  let out = ""
+  let inString = false
+  let escaped = false
+  for (const ch of s) {
+    if (escaped) { out += ch; escaped = false; continue }
+    if (ch === "\\") { out += ch; escaped = true; continue }
+    if (ch === '"') { inString = !inString; out += ch; continue }
+    if (inString) {
+      if (ch === "\n") { out += "\\n"; continue }
+      if (ch === "\r") { out += "\\r"; continue }
+      if (ch === "\t") { out += "\\t"; continue }
+    }
+    out += ch
+  }
+  try { return JSON.parse(out) } catch { return null }
 }
 
 function buildSystemPrompt(locale: "en" | "zh"): string {
