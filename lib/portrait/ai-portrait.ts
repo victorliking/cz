@@ -8,7 +8,7 @@
  * Uses Claude Sonnet 4.6 via Bedrock (same client pattern as lib/vision/classify-style.ts).
  */
 
-import { getAnthropic, extractText, AI_MODEL } from "@/lib/ai/anthropic-client"
+import { generateAI } from "@/lib/ai/anthropic-client"
 
 export interface AIPortraitNarrative {
   prose: string[]
@@ -28,21 +28,14 @@ export async function generateAINarrative(
   const systemPrompt = buildSystemPrompt(locale)
   const userPrompt = buildUserPrompt(answers, locale)
 
-  const client = getAnthropic()
-  if (!client) return null // no API key → caller falls back to deterministic prose
+  const text = await generateAI({
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
+    maxTokens: 2000,
+  })
+  if (!text) return null // no credential / API failure → deterministic prose
 
   try {
-    const response = await client.messages.create({
-      model: AI_MODEL,
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages: [
-        { role: "user", content: userPrompt },
-      ],
-    })
-
-    const text = extractText(response)
-    if (!text) return null
 
     // Extract JSON from response — handle markdown wrapping and malformed JSON
     let jsonStr = text.trim()

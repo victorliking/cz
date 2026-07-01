@@ -5,7 +5,7 @@
  * materials, era, and overall aesthetic vibe of a home from its listing photo.
  */
 
-import { getAnthropic, extractText, AI_MODEL } from "@/lib/ai/anthropic-client"
+import { generateAI } from "@/lib/ai/anthropic-client"
 import {
   STYLE_CATEGORIES,
   type StyleClassification,
@@ -56,13 +56,9 @@ export async function classifyStyle(
       ? (rawType as (typeof allowed)[number])
       : "image/jpeg"
 
-    const client = getAnthropic()
-    if (!client) return null // no API key → skip classification (caller handles null)
-
-    const response = await client.messages.create({
-      model: AI_MODEL,
-      max_tokens: 300,
+    const text = await generateAI({
       system: SYSTEM_PROMPT,
+      maxTokens: 300,
       messages: [
         {
           role: "user",
@@ -76,9 +72,7 @@ export async function classifyStyle(
         },
       ],
     })
-
-    const text = extractText(response)
-    if (!text) return null
+    if (!text) return null // no credential / API failure → skip classification
 
     const raw = JSON.parse(text)
     return validateAndNormalize(raw)

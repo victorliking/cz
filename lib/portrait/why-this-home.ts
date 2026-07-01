@@ -39,7 +39,7 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 
-import { getAnthropic, extractText, AI_MODEL } from "@/lib/ai/anthropic-client"
+import { generateAI } from "@/lib/ai/anthropic-client"
 
 /**
  * The listing's REAL facts, as already computed by the match engine / MLS data.
@@ -129,25 +129,13 @@ export async function generateWhyThisHome(
   const systemPrompt = buildSystemPrompt(locale)
   const userPrompt = buildUserPrompt(input)
 
-  const client = getAnthropic()
-  if (!client) return null // no API key → graceful fallback to deterministic reasons
-
-  try {
-    const response = await client.messages.create({
-      model: AI_MODEL,
-      max_tokens: 400,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userPrompt }],
-    })
-
-    const text = extractText(response)
-    if (!text) return null
-
-    return { paragraph: text }
-  } catch (error) {
-    console.error("[Why This Home] Generation failed:", error)
-    return null
-  }
+  const text = await generateAI({
+    system: systemPrompt,
+    messages: [{ role: "user", content: userPrompt }],
+    maxTokens: 400,
+  })
+  if (!text) return null // no credential / API failure → deterministic fallback
+  return { paragraph: text }
 }
 
 function buildSystemPrompt(locale: "en" | "zh"): string {
