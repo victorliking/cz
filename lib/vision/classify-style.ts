@@ -5,10 +5,7 @@
  * materials, era, and overall aesthetic vibe of a home from its listing photo.
  */
 
-import {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} from "@aws-sdk/client-bedrock-runtime"
+import { getAnthropic, extractText, AI_MODEL } from "@/lib/ai/anthropic-client"
 import {
   STYLE_CATEGORIES,
   type StyleClassification,
@@ -20,14 +17,6 @@ import {
   type ColorPalette,
 } from "./style-tags"
 
-let _client: BedrockRuntimeClient | null = null
-
-function getClient(): BedrockRuntimeClient {
-  if (!_client) {
-    _client = new BedrockRuntimeClient({ region: "us-west-2" })
-  }
-  return _client
-}
 
 const SYSTEM_PROMPT = `You are a home style classifier. Given an exterior photo of a residential property, classify it into structured style tags. Respond with ONLY valid JSON matching this schema — no markdown, no explanation:
 
@@ -60,12 +49,18 @@ export async function classifyStyle(
     }
     const imageBuffer = await imageResponse.arrayBuffer()
     const base64Image = Buffer.from(imageBuffer).toString("base64")
-    const contentType = imageResponse.headers.get("content-type") || "image/jpeg"
+    const rawType = imageResponse.headers.get("content-type") || "image/jpeg"
+    // Anthropic accepts a fixed set of image media types; normalize + default.
+    const allowed = ["image/jpeg", "image/png", "image/gif", "image/webp"] as const
+    const mediaType = (allowed as readonly string[]).includes(rawType)
+      ? (rawType as (typeof allowed)[number])
+      : "image/jpeg"
 
-    const client = getClient()
+    const client = getAnthropic()
+    if (!client) return null // no API key → skip classification (caller handles null)
 
-    const body = JSON.stringify({
-      anthropic_version: "bedrock-2023-05-31",
+    const response = await client.messages.create({
+      model: AI_MODEL,
       max_tokens: 300,
       system: SYSTEM_PROMPT,
       messages: [
@@ -74,35 +69,18 @@ export async function classifyStyle(
           content: [
             {
               type: "image",
-              source: {
-                type: "base64",
-                media_type: contentType,
-                data: base64Image,
-              },
+              source: { type: "base64", media_type: mediaType, data: base64Image },
             },
-            {
-              type: "text",
-              text: "Classify this home.",
-            },
+            { type: "text", text: "Classify this home." },
           ],
         },
       ],
     })
 
-    const command = new InvokeModelCommand({
-      modelId: "us.anthropic.claude-sonnet-4-6",
-      contentType: "application/json",
-      accept: "application/json",
-      body: new TextEncoder().encode(body),
-    })
+    const text = extractText(response)
+    if (!text) return null
 
-    const response = await client.send(command)
-    const responseBody = JSON.parse(new TextDecoder().decode(response.body))
-
-    const textBlock = responseBody.content?.find((block: any) => block.type === "text")
-    if (!textBlock?.text) return null
-
-    const raw = JSON.parse(textBlock.text)
+    const raw = JSON.parse(text)
     return validateAndNormalize(raw)
   } catch (error) {
     console.error(

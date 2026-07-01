@@ -7,12 +7,9 @@
  * buyer's own words/priorities, and the deterministic match reasons/dimension
  * scores) and gets back a short paragraph — or null.
  *
- * Mirrors the Bedrock pattern in lib/portrait/ai-portrait.ts EXACTLY:
- * - BedrockRuntimeClient + InvokeModelCommand
- * - MODEL_ID "us.anthropic.claude-sonnet-4-6", AWS_REGION "us-west-2"
- * - body { anthropic_version: "bedrock-2023-05-31", max_tokens, system, messages }
- * - lazy getClient() singleton
- * - try/catch returns null on ANY failure (missing creds, API error, empty text)
+ * Uses the shared Anthropic SDK client (lib/ai/anthropic-client.ts) —
+ * Claude Sonnet 4.6 via the direct Anthropic API (ANTHROPIC_API_KEY).
+ * try/catch returns null on ANY failure (missing key, API error, empty text).
  *
  * GROUNDING is enforced hard in the system prompt: the model may reference ONLY
  * facts present in the input. It must not invent features, amenities, prices,
@@ -42,22 +39,7 @@
  * ────────────────────────────────────────────────────────────────────────────
  */
 
-import {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} from "@aws-sdk/client-bedrock-runtime"
-
-const MODEL_ID = "us.anthropic.claude-sonnet-4-6"
-const AWS_REGION = "us-west-2"
-
-let _client: BedrockRuntimeClient | null = null
-
-function getClient(): BedrockRuntimeClient {
-  if (!_client) {
-    _client = new BedrockRuntimeClient({ region: AWS_REGION })
-  }
-  return _client
-}
+import { getAnthropic, extractText, AI_MODEL } from "@/lib/ai/anthropic-client"
 
 /**
  * The listing's REAL facts, as already computed by the match engine / MLS data.
@@ -147,30 +129,18 @@ export async function generateWhyThisHome(
   const systemPrompt = buildSystemPrompt(locale)
   const userPrompt = buildUserPrompt(input)
 
-  try {
-    const client = getClient()
+  const client = getAnthropic()
+  if (!client) return null // no API key → graceful fallback to deterministic reasons
 
-    const body = JSON.stringify({
-      anthropic_version: "bedrock-2023-05-31",
+  try {
+    const response = await client.messages.create({
+      model: AI_MODEL,
       max_tokens: 400,
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
     })
 
-    const command = new InvokeModelCommand({
-      modelId: MODEL_ID,
-      contentType: "application/json",
-      accept: "application/json",
-      body: new TextEncoder().encode(body),
-    })
-
-    const response = await client.send(command)
-    const responseBody = JSON.parse(new TextDecoder().decode(response.body))
-
-    const textBlock = responseBody.content?.find(
-      (block: any) => block.type === "text"
-    )
-    const text: string | undefined = textBlock?.text?.trim()
+    const text = extractText(response)
     if (!text) return null
 
     return { paragraph: text }

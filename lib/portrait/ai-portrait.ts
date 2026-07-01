@@ -8,22 +8,7 @@
  * Uses Claude Sonnet 4.6 via Bedrock (same client pattern as lib/vision/classify-style.ts).
  */
 
-import {
-  BedrockRuntimeClient,
-  InvokeModelCommand,
-} from "@aws-sdk/client-bedrock-runtime"
-
-const MODEL_ID = "us.anthropic.claude-sonnet-4-6"
-const AWS_REGION = "us-west-2"
-
-let _client: BedrockRuntimeClient | null = null
-
-function getClient(): BedrockRuntimeClient {
-  if (!_client) {
-    _client = new BedrockRuntimeClient({ region: AWS_REGION })
-  }
-  return _client
-}
+import { getAnthropic, extractText, AI_MODEL } from "@/lib/ai/anthropic-client"
 
 export interface AIPortraitNarrative {
   prose: string[]
@@ -43,11 +28,12 @@ export async function generateAINarrative(
   const systemPrompt = buildSystemPrompt(locale)
   const userPrompt = buildUserPrompt(answers, locale)
 
-  try {
-    const client = getClient()
+  const client = getAnthropic()
+  if (!client) return null // no API key → caller falls back to deterministic prose
 
-    const body = JSON.stringify({
-      anthropic_version: "bedrock-2023-05-31",
+  try {
+    const response = await client.messages.create({
+      model: AI_MODEL,
       max_tokens: 2000,
       system: systemPrompt,
       messages: [
@@ -55,20 +41,7 @@ export async function generateAINarrative(
       ],
     })
 
-    const command = new InvokeModelCommand({
-      modelId: MODEL_ID,
-      contentType: "application/json",
-      accept: "application/json",
-      body: new TextEncoder().encode(body),
-    })
-
-    const response = await client.send(command)
-    const responseBody = JSON.parse(new TextDecoder().decode(response.body))
-
-    const textBlock = responseBody.content?.find(
-      (block: any) => block.type === "text"
-    )
-    const text = textBlock?.text ?? null
+    const text = extractText(response)
     if (!text) return null
 
     // Extract JSON from response — handle markdown wrapping and malformed JSON
